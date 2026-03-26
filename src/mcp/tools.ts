@@ -2,21 +2,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
+import { z } from "zod";
 import { readConfig } from "../cli/config";
 import { CodeTeleportClient } from "../client/api";
 import { bundleSession } from "../core/bundle";
 import { detectCurrentSession } from "../core/session";
 import { unbundleSession } from "../core/unbundle";
-
-interface ToolArgs {
-	label?: string;
-	tags?: string[];
-	sessionId?: string;
-	targetDir?: string;
-	machine?: string;
-	tag?: string;
-	limit?: number;
-}
 
 export function registerTools(server: McpServer) {
 	server.registerTool(
@@ -26,19 +17,31 @@ export function registerTools(server: McpServer) {
 				"Push the current Claude Code session to CodeTeleport cloud storage.",
 				"Bundles the full conversation (JSONL, subagents, file history, paste cache, shell snapshots)",
 				"and uploads it so you can resume on another machine.",
+				"If the session was previously pushed, it will be overwritten with the latest version.",
 				"",
 				"Examples:",
 				'  "teleport this session"',
 				'  "push this session to the cloud"',
 				'  "save this conversation so I can continue on my MacBook"',
 			].join("\n"),
+			inputSchema: z.object({
+				label: z.string().optional().describe("Human-readable name for the session"),
+				tags: z.array(z.string()).optional().describe("Tags for filtering"),
+			}),
 		},
-		async () => {
+		async (args) => {
 			const config = readConfig();
 			const client = new CodeTeleportClient({ apiUrl: config.apiUrl, token: config.token });
 
 			const session = detectCurrentSession();
 			const bundle = await bundleSession({ sessionId: session.sessionId, cwd: session.cwd });
+
+			// Auto-overwrite: delete existing session if it exists
+			try {
+				await client.deleteSession(bundle.sessionId);
+			} catch {
+				// Ignore — session may not exist yet
+			}
 
 			const { uploadUrl } = await client.initiateUpload({
 				sessionId: bundle.sessionId,
@@ -48,6 +51,8 @@ export function registerTools(server: McpServer) {
 				sizeBytes: bundle.sizeBytes,
 				checksum: bundle.checksum,
 				metadata: bundle.metadata,
+				tags: args.tags,
+				label: args.label,
 			});
 
 			await client.uploadBundle(uploadUrl, bundle.bundlePath);
@@ -91,8 +96,14 @@ export function registerTools(server: McpServer) {
 				'  "pull session abc123 to /Users/bob/projects/myapp"',
 				'  "show me my available sessions"',
 			].join("\n"),
+			inputSchema: z.object({
+				sessionId: z.string().optional().describe("Pull a specific session by ID"),
+				targetDir: z.string().optional().describe("Anchor session at this directory path"),
+				machine: z.string().optional().describe("Filter by source machine name"),
+				limit: z.number().optional().describe("Max sessions to list"),
+			}),
 		},
-		async (args: ToolArgs) => {
+		async (args) => {
 			const config = readConfig();
 			const client = new CodeTeleportClient({ apiUrl: config.apiUrl, token: config.token });
 
@@ -152,8 +163,13 @@ export function registerTools(server: McpServer) {
 				'  "show sessions from my MacBook"',
 				'  "what sessions do I have tagged as work?"',
 			].join("\n"),
+			inputSchema: z.object({
+				machine: z.string().optional().describe("Filter by machine name"),
+				tag: z.string().optional().describe("Filter by tag"),
+				limit: z.number().optional().describe("Max results"),
+			}),
 		},
-		async (args: ToolArgs) => {
+		async (args) => {
 			const config = readConfig();
 			const client = new CodeTeleportClient({ apiUrl: config.apiUrl, token: config.token });
 
@@ -223,18 +239,16 @@ export function registerTools(server: McpServer) {
 			description: [
 				"Delete a session from CodeTeleport cloud.",
 				"Permanently removes the session bundle from cloud storage. Cannot be undone.",
-				"Requires the full session ID.",
 				"",
 				"Examples:",
 				'  "delete session c3a05473-9f12-4a2b-ae27-9478ab66d216"',
 				'  "remove my old teleported session"',
 			].join("\n"),
+			inputSchema: z.object({
+				sessionId: z.string().describe("Full session ID to delete"),
+			}),
 		},
-		async (args: ToolArgs) => {
-			if (!args.sessionId) {
-				return { content: [{ type: "text" as const, text: "sessionId is required" }], isError: true };
-			}
-
+		async (args) => {
 			const config = readConfig();
 			const client = new CodeTeleportClient({ apiUrl: config.apiUrl, token: config.token });
 

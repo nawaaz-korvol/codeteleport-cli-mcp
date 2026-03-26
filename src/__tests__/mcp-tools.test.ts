@@ -109,8 +109,9 @@ describe("MCP Tools", () => {
 
 	describe("teleport_push", () => {
 		it("bundles and uploads the current session", async () => {
-			// 3 fetch calls: initiateUpload, uploadBundle (PUT), confirmUpload
+			// 4 fetch calls: deleteSession (overwrite), initiateUpload, uploadBundle (PUT), confirmUpload
 			mockFetch
+				.mockResolvedValueOnce(mockResponse(200, { ok: true }))
 				.mockResolvedValueOnce(mockResponse(200, { uploadUrl: "https://r2.test/put", sessionRecordId: "s1" }))
 				.mockResolvedValueOnce(mockResponse(200, {}))
 				.mockResolvedValueOnce(mockResponse(200, { ok: true }));
