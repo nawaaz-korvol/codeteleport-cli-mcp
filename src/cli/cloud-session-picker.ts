@@ -20,11 +20,6 @@ export async function pickCloudSession(
 ): Promise<PickedCloudSession | null> {
 	if (sessions.length === 0) return null;
 
-	if (sessions.length === 1) {
-		const s = sessions[0];
-		return { sessionId: s.id, sourceCwd: s.sourceCwd, sourceMachine: s.sourceMachine };
-	}
-
 	logFn("\nCloud sessions:\n");
 	for (let i = 0; i < sessions.length; i++) {
 		logFn(formatCloudSessionRow(i + 1, sessions[i]));
