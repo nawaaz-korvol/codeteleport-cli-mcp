@@ -3,7 +3,7 @@ import readline from "node:readline";
 import { Command } from "commander";
 import open from "open";
 import { CodeTeleportClient } from "../../client/api";
-import { API_URL } from "../../shared/constants";
+import { resolveApiUrl } from "../api-url";
 import { writeConfig } from "../config";
 import { resolveLoginMethod, startOAuthCallbackServer } from "../github-oauth";
 
@@ -21,15 +21,15 @@ function promptPassword(question: string): Promise<string> {
 	return prompt(question);
 }
 
-async function createApiTokenAndSave(jwt: string, email?: string) {
+export async function createApiTokenAndSave(apiUrl: string, jwt: string, email?: string) {
 	const deviceName = os.hostname().replace(/\.local$/, "");
-	const authedClient = new CodeTeleportClient({ apiUrl: API_URL, token: jwt });
+	const authedClient = new CodeTeleportClient({ apiUrl, token: jwt });
 
 	const { token: apiToken } = await authedClient.createApiToken(deviceName);
 
 	writeConfig({
 		token: apiToken,
-		apiUrl: API_URL,
+		apiUrl,
 		deviceName,
 	});
 
@@ -39,14 +39,15 @@ async function createApiTokenAndSave(jwt: string, email?: string) {
 		console.log("\nLogged in via GitHub");
 	}
 	console.log(`Device: ${deviceName}`);
+	console.log(`API: ${apiUrl}`);
 	console.log("Config saved to ~/.codeteleport/config.json");
 }
 
-async function loginWithEmail(register: boolean) {
+async function loginWithEmail(apiUrl: string, register: boolean) {
 	const email = await prompt("Email: ");
 	const password = await promptPassword("Password: ");
 
-	const client = new CodeTeleportClient({ apiUrl: API_URL, token: "" });
+	const client = new CodeTeleportClient({ apiUrl, token: "" });
 
 	let jwt: string;
 	if (register) {
@@ -58,13 +59,13 @@ async function loginWithEmail(register: boolean) {
 		jwt = result.token;
 	}
 
-	await createApiTokenAndSave(jwt, email);
+	await createApiTokenAndSave(apiUrl, jwt, email);
 }
 
-async function loginWithGitHub() {
+async function loginWithGitHub(apiUrl: string) {
 	const { port, tokenPromise } = await startOAuthCallbackServer();
 
-	const apiBase = API_URL.replace(/\/v1$/, "");
+	const apiBase = apiUrl.replace(/\/v1$/, "");
 	const authUrl = `${apiBase}/v1/auth/github?cli_port=${port}`;
 
 	console.log("Opening browser for GitHub login...");
@@ -75,7 +76,7 @@ async function loginWithGitHub() {
 	});
 
 	const jwt = await tokenPromise;
-	await createApiTokenAndSave(jwt);
+	await createApiTokenAndSave(apiUrl, jwt);
 }
 
 export const authCommand = new Command("auth").description("Manage authentication");
@@ -86,14 +87,17 @@ authCommand
 	.option("--register", "Create a new account")
 	.option("--github", "Log in with GitHub")
 	.option("--email", "Log in with email and password")
+	.option("--api-url <url>", "API server URL (default: https://api.codeteleport.com)")
 	.action(async (opts) => {
+		const apiUrl = resolveApiUrl(opts.apiUrl);
+
 		try {
 			const method = await resolveLoginMethod(opts, prompt);
 
 			if (method === "github") {
-				await loginWithGitHub();
+				await loginWithGitHub(apiUrl);
 			} else {
-				await loginWithEmail(!!opts.register);
+				await loginWithEmail(apiUrl, !!opts.register);
 			}
 		} catch (err) {
 			console.error(`Authentication failed: ${(err as Error).message}`);

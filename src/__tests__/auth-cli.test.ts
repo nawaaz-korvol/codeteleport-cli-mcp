@@ -2,10 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { resolveApiUrl } from "../cli/api-url";
 
 // Mock the dependencies that createApiTokenAndSave uses
-vi.mock("../../client/api", () => ({
+vi.mock("../client/api", () => ({
 	CodeTeleportClient: vi.fn(),
 }));
-vi.mock("../config", () => ({
+vi.mock("../cli/config", () => ({
 	writeConfig: vi.fn(),
 }));
 
@@ -21,8 +21,8 @@ describe("Auth CLI --api-url", () => {
 	it("createApiTokenAndSave passes apiUrl to client and config", async () => {
 		// This tests the contract: createApiTokenAndSave must accept apiUrl param
 		// and pass it to CodeTeleportClient and writeConfig
-		const { CodeTeleportClient } = await import("../../client/api");
-		const { writeConfig } = await import("../config");
+		const { CodeTeleportClient } = await import("../client/api");
+		const { writeConfig } = await import("../cli/config");
 
 		const mockCreateToken = vi.fn().mockResolvedValue({ token: "ctk_live_test" });
 		(CodeTeleportClient as any).mockImplementation(() => ({
