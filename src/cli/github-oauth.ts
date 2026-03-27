@@ -53,15 +53,12 @@ export async function startOAuthCallbackServer(): Promise<{
 				res.writeHead(200, { "Content-Type": "text/html" });
 
 				if (error) {
-					res.end(
-						"<html><body><h2>Authentication failed</h2><p>You can close this tab.</p></body></html>",
-						() => {
-							setTimeout(() => {
-								server.close();
-								rejectToken(new Error(error));
-							}, 500);
-						},
-					);
+					res.end("<html><body><h2>Authentication failed</h2><p>You can close this tab.</p></body></html>", () => {
+						setTimeout(() => {
+							server.close();
+							rejectToken(new Error(error));
+						}, 500);
+					});
 					return;
 				}
 
