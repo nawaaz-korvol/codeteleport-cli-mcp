@@ -1,9 +1,11 @@
 import os from "node:os";
 import readline from "node:readline";
 import { Command } from "commander";
+import open from "open";
 import { CodeTeleportClient } from "../../client/api";
 import { API_URL } from "../../shared/constants";
 import { writeConfig } from "../config";
+import { resolveLoginMethod, startOAuthCallbackServer } from "../github-oauth";
 
 function prompt(question: string): Promise<string> {
 	const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -19,51 +21,82 @@ function promptPassword(question: string): Promise<string> {
 	return prompt(question);
 }
 
+async function createApiTokenAndSave(jwt: string, email?: string) {
+	const deviceName = os.hostname().replace(/\.local$/, "");
+	const authedClient = new CodeTeleportClient({ apiUrl: API_URL, token: jwt });
+
+	const { token: apiToken } = await authedClient.createApiToken(deviceName);
+
+	writeConfig({
+		token: apiToken,
+		apiUrl: API_URL,
+		deviceName,
+	});
+
+	if (email) {
+		console.log(`\nLogged in as ${email}`);
+	} else {
+		console.log("\nLogged in via GitHub");
+	}
+	console.log(`Device: ${deviceName}`);
+	console.log("Config saved to ~/.codeteleport/config.json");
+}
+
+async function loginWithEmail(register: boolean) {
+	const email = await prompt("Email: ");
+	const password = await promptPassword("Password: ");
+
+	const client = new CodeTeleportClient({ apiUrl: API_URL, token: "" });
+
+	let jwt: string;
+	if (register) {
+		const result = await client.register(email, password);
+		jwt = result.token;
+		console.log(`Account created for ${email}`);
+	} else {
+		const result = await client.login(email, password);
+		jwt = result.token;
+	}
+
+	await createApiTokenAndSave(jwt, email);
+}
+
+async function loginWithGitHub() {
+	const { port, tokenPromise } = await startOAuthCallbackServer();
+
+	const apiBase = API_URL.replace(/\/v1$/, "");
+	const authUrl = `${apiBase}/v1/auth/github?cli_port=${port}`;
+
+	console.log("Opening browser for GitHub login...");
+	console.log(`If the browser doesn't open, visit: ${authUrl}`);
+
+	open(authUrl).catch(() => {
+		// Browser open failed — user can manually visit the URL
+	});
+
+	const jwt = await tokenPromise;
+	await createApiTokenAndSave(jwt);
+}
+
 export const authCommand = new Command("auth").description("Manage authentication");
 
 authCommand
 	.command("login")
 	.description("Log in to CodeTeleport")
 	.option("--register", "Create a new account")
+	.option("--github", "Log in with GitHub")
+	.option("--email", "Log in with email and password")
 	.action(async (opts) => {
-		const email = await prompt("Email: ");
-		const password = await promptPassword("Password: ");
-
-		const client = new CodeTeleportClient({ apiUrl: API_URL, token: "" });
-
-		let jwt: string;
 		try {
-			if (opts.register) {
-				const result = await client.register(email, password);
-				jwt = result.token;
-				console.log(`Account created for ${email}`);
+			const method = await resolveLoginMethod(opts, prompt);
+
+			if (method === "github") {
+				await loginWithGitHub();
 			} else {
-				const result = await client.login(email, password);
-				jwt = result.token;
+				await loginWithEmail(!!opts.register);
 			}
 		} catch (err) {
 			console.error(`Authentication failed: ${(err as Error).message}`);
-			process.exit(1);
-		}
-
-		// Create a long-lived API token for this device
-		const deviceName = os.hostname().replace(/\.local$/, "");
-		const authedClient = new CodeTeleportClient({ apiUrl: API_URL, token: jwt });
-
-		try {
-			const { token: apiToken } = await authedClient.createApiToken(deviceName);
-
-			writeConfig({
-				token: apiToken,
-				apiUrl: API_URL,
-				deviceName,
-			});
-
-			console.log(`\nLogged in as ${email}`);
-			console.log(`Device: ${deviceName}`);
-			console.log("Config saved to ~/.codeteleport/config.json");
-		} catch (err) {
-			console.error(`Failed to create API token: ${(err as Error).message}`);
 			process.exit(1);
 		}
 	});
