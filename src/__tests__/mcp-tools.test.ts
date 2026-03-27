@@ -242,7 +242,18 @@ describe("MCP Tools", () => {
 	});
 
 	describe("teleport_status", () => {
-		it("returns account status", async () => {
+		it("returns account status with usage info", async () => {
+			// First call: billing/usage
+			mockFetch.mockResolvedValueOnce(
+				mockResponse(200, {
+					plan: "free",
+					paymentStatus: null,
+					sessions: { used: 5, limit: 25 },
+					devices: { used: 2, limit: 3 },
+					versionsPerSession: 2,
+				}),
+			);
+			// Second call: sessions list
 			mockFetch.mockResolvedValueOnce(
 				mockResponse(200, {
 					sessions: [{ id: "sess-ccc", sourceMachine: "macbook", createdAt: "2026-03-25T07:00:00Z" }],
@@ -254,7 +265,9 @@ describe("MCP Tools", () => {
 
 			expect(result.content[0].text).toContain("CodeTeleport Status");
 			expect(result.content[0].text).toContain("test-macbook");
-			expect(result.content[0].text).toContain("5 stored");
+			expect(result.content[0].text).toContain("free");
+			expect(result.content[0].text).toContain("5 / 25");
+			expect(result.content[0].text).toContain("2 / 3");
 		});
 	});
 
