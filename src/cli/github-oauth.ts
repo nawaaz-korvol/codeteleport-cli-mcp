@@ -16,7 +16,11 @@ export async function resolveLoginMethod(
 	flags: LoginFlags,
 	promptFn: (question: string) => Promise<string>,
 ): Promise<LoginMethod> {
-	throw new Error("Not implemented");
+	if (flags.github) return "github";
+	if (flags.email || flags.register) return "email";
+
+	const choice = await promptFn("How do you want to log in?\n  1) GitHub\n  2) Email & Password\n> ");
+	return choice === "2" ? "email" : "github";
 }
 
 /**
@@ -28,5 +32,60 @@ export async function startOAuthCallbackServer(): Promise<{
 	tokenPromise: Promise<string>;
 	close: () => void;
 }> {
-	throw new Error("Not implemented");
+	return new Promise((resolveSetup) => {
+		let resolveToken: (token: string) => void;
+		let rejectToken: (err: Error) => void;
+
+		const tokenPromise = new Promise<string>((res, rej) => {
+			resolveToken = res;
+			rejectToken = rej;
+		});
+		// Prevent unhandled rejection — caller is expected to await this
+		tokenPromise.catch(() => {});
+
+		const server = http.createServer((req, res) => {
+			const url = new URL(req.url || "/", "http://localhost");
+
+			if (url.pathname === "/callback") {
+				const token = url.searchParams.get("token");
+				const error = url.searchParams.get("error");
+
+				res.writeHead(200, { "Content-Type": "text/html" });
+
+				if (error) {
+					res.end("<html><body><h2>Authentication failed</h2><p>You can close this tab.</p></body></html>");
+					setImmediate(() => {
+						server.close();
+						rejectToken(new Error(error));
+					});
+					return;
+				}
+
+				if (token) {
+					res.end(
+						"<html><body><h2>Logged in to CodeTeleport!</h2><p>You can close this tab and return to the terminal.</p></body></html>",
+					);
+					setImmediate(() => {
+						server.close();
+						resolveToken(token);
+					});
+					return;
+				}
+			}
+
+			res.writeHead(404);
+			res.end();
+		});
+
+		server.listen(0, () => {
+			const address = server.address();
+			const port = typeof address === "object" && address ? address.port : 0;
+
+			resolveSetup({
+				port,
+				tokenPromise,
+				close: () => server.close(),
+			});
+		});
+	});
 }
