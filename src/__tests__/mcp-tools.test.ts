@@ -289,4 +289,42 @@ describe("MCP Tools", () => {
 			expect(result.content[0].text).toContain("deleted");
 		});
 	});
+
+	describe("error handling", () => {
+		it("teleport_push returns isError on network failure", async () => {
+			mockFetch.mockRejectedValueOnce(new Error("Network unreachable"));
+
+			const result = await callTool("teleport_push", {});
+
+			expect(result.isError).toBe(true);
+			expect(result.content[0].text).toContain("Network unreachable");
+		});
+
+		it("teleport_list returns isError on API failure", async () => {
+			mockFetch.mockRejectedValueOnce(new Error("401 Unauthorized"));
+
+			const result = await callTool("teleport_list", {});
+
+			expect(result.isError).toBe(true);
+			expect(result.content[0].text).toContain("401");
+		});
+
+		it("teleport_delete returns isError on API failure", async () => {
+			mockFetch.mockRejectedValueOnce(new Error("Session not found"));
+
+			const result = await callTool("teleport_delete", { sessionId: "bad-id" });
+
+			expect(result.isError).toBe(true);
+			expect(result.content[0].text).toContain("Session not found");
+		});
+
+		it("teleport_status returns isError on API failure", async () => {
+			mockFetch.mockRejectedValueOnce(new Error("Connection refused"));
+
+			const result = await callTool("teleport_status");
+
+			expect(result.isError).toBe(true);
+			expect(result.content[0].text).toContain("Connection refused");
+		});
+	});
 });
