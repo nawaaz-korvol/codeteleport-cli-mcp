@@ -25,13 +25,13 @@ describe("pickCloudSession", () => {
 		expect(result).toBeNull();
 	});
 
-	it("returns the only session without prompting", async () => {
+	it("always prompts even for single session", async () => {
 		let prompted = false;
 		const result = await pickCloudSession(
 			[makeCloudSession()],
 			async () => {
 				prompted = true;
-				return "";
+				return "1";
 			},
 			noopLog,
 		);
@@ -39,7 +39,12 @@ describe("pickCloudSession", () => {
 		expect(result?.sessionId).toBe("c3a05473-9f12-4a2b-ae27-9478ab66d216");
 		expect(result?.sourceCwd).toBe("/Users/alice/my-project");
 		expect(result?.sourceMachine).toBe("macbook-pro");
-		expect(prompted).toBe(false);
+		expect(prompted).toBe(true);
+	});
+
+	it("returns null on q even for single session", async () => {
+		const result = await pickCloudSession([makeCloudSession()], async () => "q", noopLog);
+		expect(result).toBeNull();
 	});
 
 	it("returns the selected session when user picks a number", async () => {
