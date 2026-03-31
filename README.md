@@ -1,121 +1,194 @@
-# @codeteleport/mcp
+<div align="center">
 
-Teleport your Claude Code sessions across devices. Pick up any conversation, on any machine, instantly.
+# CodeTeleport
 
-## What it does
+**Teleport your AI coding sessions across devices.**
 
-CodeTeleport syncs Claude Code sessions between machines. It bundles your conversation history, subagents, file history, paste cache, and shell snapshots into a portable archive, uploads it to the cloud, and restores it on another machine — with automatic path rewriting so everything works regardless of username or directory structure.
+Push a conversation from one machine, pull it on another, resume right where you left off.
 
-## Install
+[![npm version](https://img.shields.io/npm/v/codeteleport?color=10b981&label=npm)](https://www.npmjs.com/package/codeteleport)
+[![License: MIT](https://img.shields.io/badge/license-MIT-10b981)](https://github.com/nawaaz-korvol/codeteleport-mcp/blob/main/LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-10b981)](https://docs.codeteleport.com/getting-started/installation/)
+[![Docs](https://img.shields.io/badge/docs-docs.codeteleport.com-10b981)](https://docs.codeteleport.com)
+
+</div>
+
+---
+
+## The Problem
+
+You're deep in a Claude Code session on your work laptop. Time to head home. You close the lid, open your desktop — and that conversation is gone. Start over? Copy files manually? No.
+
+## The Solution
 
 ```bash
-npm install -g @codeteleport/mcp
+# On your work machine
+codeteleport push
+
+# On your home machine
+codeteleport pull
+claude --resume
 ```
 
-## Quick start
+That's it. Your full conversation — messages, file history, tool calls, subagents — travels with you. Paths are automatically rewritten to match the new machine.
 
-### 1. Login
+---
+
+## Quick Start
+
+### 1. Install
+
+```bash
+npm install -g codeteleport
+```
+
+### 2. Log in
 
 ```bash
 codeteleport auth login
 ```
 
-### 2. Push a session (from inside Claude Code)
+Choose GitHub OAuth or email/password. Takes 10 seconds.
+
+### 3. Push a session
 
 ```bash
+cd ~/projects/my-app
 codeteleport push
 ```
 
-Or say "teleport this session" if using the MCP integration.
+```
+Sessions for my-app (2 found):
 
-### 3. Pull on another machine
+  1)  c3a05473    3490 msgs     2 min ago   5.3 MB
+  2)  16b4c4d7     847 msgs     3 hours ago 1.2 MB
+
+Select session [1]: 1
+
+Pushing session:
+  1)  c3a05473    3490 msgs     2 min ago   5.3 MB
+
+Bundling...
+Uploading...
+Confirming...
+
+Session teleported to CodeTeleport
+  id      : c3a05473-9f12-4a2b-ae27-9478ab66d216
+  size    : 5428 KB
+  machine : work-laptop
+```
+
+### 4. Pull on another machine
 
 ```bash
 codeteleport pull
-claude --resume <session-id>
 ```
 
-### Pull to a specific directory (recommended)
+```
+Cloud sessions:
 
-Use `--target-dir` to tell CodeTeleport exactly where the project lives on this machine. This is the recommended approach because it handles everything automatically — it detects your home directory from the path, locates your `~/.claude` directory, and rewrites all internal paths correctly.
+  1)  c3a05473  my-app  work-laptop   3490 msgs   5.3 MB
 
-```bash
-codeteleport pull --session-id <id> --target-dir /Users/bob/work/my-project
+Select session [1]: 1
+Downloading...
+Installing...
+
+Session pulled
+  id   : c3a05473-9f12-4a2b-ae27-9478ab66d216
+  from : work-laptop
+  to   : /home/alice/.claude/projects/-home-alice-projects-my-app
+
+Resume with: claude --resume c3a05473-9f12-4a2b-ae27-9478ab66d216
 ```
 
-This does a two-pass path rewrite:
-1. Swaps the source username for the target (e.g., `/Users/alice` → `/Users/bob`)
-2. Remaps the project path to the target directory (e.g., `/Users/bob/projects/code-teleport` → `/Users/bob/work/my-project`)
-
-Without `--target-dir`, CodeTeleport defaults to your home directory and assumes the same project path structure as the source machine. This works when both machines have the same directory layout but will break if the project lives at a different path.
-
-## Claude Code MCP integration
-
-Add CodeTeleport as an MCP server so you can push/pull sessions directly from Claude Code:
+### 5. Resume
 
 ```bash
-npm install -g @codeteleport/mcp
+claude --resume c3a05473-9f12-4a2b-ae27-9478ab66d216
+```
+
+You're back. Full context. Every message, every file edit, every tool call.
+
+---
+
+## MCP Integration
+
+Use CodeTeleport directly inside Claude Code — no terminal needed:
+
+```bash
 claude mcp add codeteleport -- codeteleport-mcp
 ```
 
-Or add to your Claude Code `settings.json`:
+Then just say:
 
-```json
-{
-  "mcpServers": {
-    "codeteleport": {
-      "command": "codeteleport-mcp"
-    }
-  }
-}
-```
+> *"Push this session to the cloud"*
+>
+> *"Pull my latest session"*
+>
+> *"Show me my local sessions"*
 
-Then inside Claude Code, you can say:
-- "Push this session to CodeTeleport"
-- "Pull my session from my MacBook"
-- "List my teleported sessions"
+Six tools available: `teleport_push`, `teleport_pull`, `teleport_list`, `teleport_local_list`, `teleport_status`, `teleport_delete`.
 
-## CLI commands
+---
+
+## CLI Commands
 
 | Command | Description |
 |---|---|
-| `codeteleport auth login` | Log in (or `--register` to create account) |
-| `codeteleport auth logout` | Remove local credentials |
-| `codeteleport push` | Push current session to the cloud |
+| `codeteleport auth login` | Log in (GitHub OAuth or email) |
+| `codeteleport push` | Push a session to the cloud |
 | `codeteleport pull` | Pull a session from the cloud |
-| `codeteleport list` | List all stored sessions |
-| `codeteleport status` | Show account and sync status |
-| `codeteleport delete <id>` | Delete a session from the cloud |
+| `codeteleport list` | List local or cloud sessions |
+| `codeteleport status` | Account info, plan, usage |
+| `codeteleport delete` | Delete a cloud session |
 
-## MCP tools
+Every command is interactive — smart defaults, session pickers, confirmation prompts.
 
-When used as an MCP server, CodeTeleport exposes these tools:
+---
 
-| Tool | Description |
+## What Gets Teleported
+
+Everything your AI coding agent stores for the conversation:
+
+| Component | Description |
 |---|---|
-| `teleport_push` | Push the current session |
-| `teleport_pull` | Pull a session (by ID or pick from list) |
-| `teleport_list` | List all stored sessions |
-| `teleport_status` | Show account status |
-| `teleport_delete` | Delete a session |
+| Conversation log | Every message, tool call, and response (JSONL) |
+| Subagent conversations | Background agent logs |
+| File history | Snapshots of files read or edited |
+| Paste cache | Content pasted into the conversation |
+| Shell snapshots | Terminal state during the session |
 
-## How it works
+All bundled into a compressed `.tar.gz`, uploaded to secure cloud storage, and restored with automatic [path rewriting](https://docs.codeteleport.com/concepts/path-rewriting/) on the target machine.
 
-1. **Bundle** — packages the Claude Code session (JSONL conversation, subagents, file history, paste cache, shell snapshots) into a `.tar.gz`
-2. **Upload** — pushes the bundle to CodeTeleport's cloud storage via presigned URLs
-3. **Download** — pulls the bundle onto the target machine
-4. **Unbundle** — extracts and rewrites all internal paths (e.g., `/Users/alice` → `/Users/bob`) so the session works on the new machine
-5. **Resume** — `claude --resume <session-id>` picks up exactly where you left off
+---
 
-## Platform support
+## Free & Open Source
 
-- macOS — fully supported
-- Linux — fully supported
-- Windows — not yet supported (path detection assumes Unix-style paths)
+The CLI and MCP server are fully open source under the MIT license. The cloud sync service has a generous free tier (25 sessions, 3 devices) — no credit card required. See [pricing](https://codeteleport.com/#pricing) for Pro plans.
 
-## Documentation
+---
 
-Full docs at **[docs.codeteleport.com](https://docs.codeteleport.com)** — installation, CLI reference, MCP integration, concepts, troubleshooting, and more.
+## Platform Support
+
+| Platform | Status |
+|---|---|
+| macOS | Fully supported |
+| Linux | Fully supported |
+| Windows | Not yet (planned) |
+
+---
+
+## Links
+
+| | |
+|---|---|
+| **Documentation** | [docs.codeteleport.com](https://docs.codeteleport.com) |
+| **Dashboard** | [app.codeteleport.com](https://app.codeteleport.com) |
+| **Website** | [codeteleport.com](https://codeteleport.com) |
+| **npm** | [codeteleport](https://www.npmjs.com/package/codeteleport) |
+| **GitHub** | [nawaaz-korvol/codeteleport-mcp](https://github.com/nawaaz-korvol/codeteleport-mcp) |
+
+---
 
 ## License
 

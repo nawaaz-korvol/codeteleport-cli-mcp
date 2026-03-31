@@ -1,9 +1,13 @@
 # Changelog
 
+## 0.2.0 (2026-04-01)
+
+- **Package renamed** — `@codeteleport/mcp` is now `codeteleport`. Install with `npm install -g codeteleport`
+- **Documentation site** — full docs at [docs.codeteleport.com](https://docs.codeteleport.com)
+
 ## 0.1.7 (2026-03-31)
 
-- **Updated pricing** — quarterly ($5) and annual ($15) plans, no lifetime
-- **Billing page** — dynamic pricing cards from API, clean Pro user experience
+- **Plans config** — centralized plan limits and features in single source of truth
 
 ## 0.1.6 (2026-03-27)
 
