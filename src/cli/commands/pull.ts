@@ -21,6 +21,7 @@ function prompt(question: string): Promise<string> {
 export const pullCommand = new Command("pull")
 	.description("Pull a session from CodeTeleport to this machine")
 	.option("--session-id <id>", "Pull a specific session")
+	.option("--version <n>", "Pull a specific version", Number)
 	.option("--target-dir <path>", "Anchor session at this directory (defaults to current directory)")
 	.option("--machine <name>", "Filter by source machine")
 	.action(async (opts) => {
@@ -50,7 +51,7 @@ export const pullCommand = new Command("pull")
 			const targetDir = opts.targetDir || process.cwd();
 
 			console.log("Downloading...");
-			const { downloadUrl, session } = await client.getDownloadUrl(sessionId);
+			const { downloadUrl, version, session } = await client.getDownloadUrl(sessionId, opts.version);
 
 			const tmpFile = path.join(os.tmpdir(), `codeteleport-${sessionId}.tar.gz`);
 			try {
@@ -64,9 +65,10 @@ export const pullCommand = new Command("pull")
 
 				console.log("");
 				console.log("Session pulled");
-				console.log(`  id   : ${result.sessionId}`);
-				console.log(`  from : ${session.sourceMachine || "unknown"}`);
-				console.log(`  to   : ${result.installedTo}`);
+				console.log(`  id      : ${result.sessionId}`);
+				console.log(`  version : ${version}`);
+				console.log(`  from    : ${session.sourceMachine || "unknown"}`);
+				console.log(`  to      : ${result.installedTo}`);
 				console.log("");
 				console.log(`Resume with: ${result.resumeCommand}`);
 			} finally {

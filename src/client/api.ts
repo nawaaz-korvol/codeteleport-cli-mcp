@@ -14,6 +14,8 @@ export interface SessionListItem {
 	sourceUserDir: string;
 	sizeBytes: number;
 	metadata: SessionMetadata | null;
+	currentVersion: number;
+	versionCount: number;
 	createdAt: string;
 	tags: string[];
 }
@@ -21,10 +23,12 @@ export interface SessionListItem {
 export interface UploadInitResponse {
 	uploadUrl: string;
 	sessionRecordId: string;
+	version: number;
 }
 
 export interface DownloadResponse {
 	downloadUrl: string;
+	version: number;
 	session: {
 		id: string;
 		sourceCwd: string;
@@ -32,6 +36,20 @@ export interface DownloadResponse {
 		sourceMachine: string | null;
 		metadata: SessionMetadata | null;
 	};
+}
+
+export interface VersionInfo {
+	version: number;
+	sizeBytes: number;
+	checksum: string;
+	createdAt: string;
+}
+
+export interface VersionsResponse {
+	sessionId: string;
+	currentVersion: number;
+	versions: VersionInfo[];
+	limit: number;
 }
 
 export class CodeTeleportClient {
@@ -145,8 +163,13 @@ export class CodeTeleportClient {
 		await this.request("POST", `/sessions/${sessionId}/confirm`);
 	}
 
-	async getDownloadUrl(sessionId: string): Promise<DownloadResponse> {
-		return this.request("GET", `/sessions/${sessionId}/download`) as Promise<DownloadResponse>;
+	async getDownloadUrl(sessionId: string, version?: number): Promise<DownloadResponse> {
+		const versionParam = version ? `?version=${version}` : "";
+		return this.request("GET", `/sessions/${sessionId}/download${versionParam}`) as Promise<DownloadResponse>;
+	}
+
+	async getVersions(sessionId: string): Promise<VersionsResponse> {
+		return this.request("GET", `/sessions/${sessionId}/versions`) as Promise<VersionsResponse>;
 	}
 
 	async deleteSession(sessionId: string): Promise<void> {

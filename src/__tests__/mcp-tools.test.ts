@@ -118,12 +118,13 @@ describe("MCP Tools", () => {
 	}
 
 	describe("tool registration", () => {
-		it("registers all 6 tools", () => {
-			expect(tools.size).toBe(6);
+		it("registers all 7 tools", () => {
+			expect(tools.size).toBe(7);
 			expect(tools.has("teleport_push")).toBe(true);
 			expect(tools.has("teleport_pull")).toBe(true);
 			expect(tools.has("teleport_list")).toBe(true);
 			expect(tools.has("teleport_local_list")).toBe(true);
+			expect(tools.has("teleport_versions")).toBe(true);
 			expect(tools.has("teleport_status")).toBe(true);
 			expect(tools.has("teleport_delete")).toBe(true);
 		});
@@ -136,11 +137,12 @@ describe("MCP Tools", () => {
 	});
 
 	describe("teleport_push", () => {
-		it("bundles and uploads the current session", async () => {
-			// 4 fetch calls: deleteSession (overwrite), initiateUpload, uploadBundle (PUT), confirmUpload
+		it("bundles and uploads with version in response", async () => {
+			// 3 fetch calls: initiateUpload, uploadBundle (PUT), confirmUpload
 			mockFetch
-				.mockResolvedValueOnce(mockResponse(200, { ok: true }))
-				.mockResolvedValueOnce(mockResponse(200, { uploadUrl: "https://r2.test/put", sessionRecordId: "s1" }))
+				.mockResolvedValueOnce(
+					mockResponse(200, { uploadUrl: "https://r2.test/put", sessionRecordId: "s1", version: 2 }),
+				)
 				.mockResolvedValueOnce(mockResponse(200, {}))
 				.mockResolvedValueOnce(mockResponse(200, { ok: true }));
 
@@ -149,7 +151,7 @@ describe("MCP Tools", () => {
 			expect(result.isError).toBeUndefined();
 			expect(result.content[0].text).toContain("teleported");
 			expect(result.content[0].text).toContain("test-session-001");
-			// 51200 / 1024 = 50
+			expect(result.content[0].text).toContain("version : 2");
 			expect(result.content[0].text).toContain("50 KB");
 			expect(result.content[0].text).toContain("test-macbook");
 		});
@@ -302,6 +304,31 @@ describe("MCP Tools", () => {
 		});
 	});
 
+	describe("teleport_versions", () => {
+		it("returns formatted version history", async () => {
+			mockFetch.mockResolvedValueOnce(
+				mockResponse(200, {
+					sessionId: "sess-ver-001",
+					currentVersion: 3,
+					versions: [
+						{ version: 3, sizeBytes: 5000000, checksum: "sha256:ccc", createdAt: "2026-04-01T10:00:00Z" },
+						{ version: 2, sizeBytes: 4000000, checksum: "sha256:bbb", createdAt: "2026-03-31T08:00:00Z" },
+					],
+					limit: 2,
+				}),
+			);
+
+			const result = await callTool("teleport_versions", { sessionId: "sess-ver-001" });
+
+			expect(result.isError).toBeUndefined();
+			expect(result.content[0].text).toContain("sess-ver-001");
+			expect(result.content[0].text).toContain("v3");
+			expect(result.content[0].text).toContain("v2");
+			expect(result.content[0].text).toContain("(latest)");
+			expect(result.content[0].text).toContain("free");
+		});
+	});
+
 	describe("teleport_delete", () => {
 		it("deletes a session", async () => {
 			mockFetch.mockResolvedValueOnce(mockResponse(200, { ok: true }));
@@ -315,9 +342,7 @@ describe("MCP Tools", () => {
 
 	describe("error handling", () => {
 		it("teleport_push returns isError on network failure", async () => {
-			// First call: deleteSession (overwrite attempt) — succeeds
-			mockFetch.mockResolvedValueOnce(mockResponse(200, { ok: true }));
-			// Second call: initiateUpload — fails
+			// First call: initiateUpload — fails (no more delete-before-upload)
 			mockFetch.mockRejectedValueOnce(new Error("Network unreachable"));
 
 			const result = await callTool("teleport_push", {});

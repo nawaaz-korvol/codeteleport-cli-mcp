@@ -87,7 +87,7 @@ export const pushCommand = new Command("push")
 
 		// Upload
 		try {
-			const { uploadUrl } = await client.initiateUpload({
+			const { uploadUrl, version } = await client.initiateUpload({
 				sessionId: bundle.sessionId,
 				sourceMachine: config.deviceName,
 				sourceCwd: bundle.sourceCwd,
@@ -108,6 +108,7 @@ export const pushCommand = new Command("push")
 			log("");
 			log("Session teleported to CodeTeleport");
 			log(`  id      : ${bundle.sessionId}`);
+			log(`  version : ${version}`);
 			log(`  size    : ${(bundle.sizeBytes / 1024).toFixed(0)} KB`);
 			log(`  machine : ${config.deviceName}`);
 		} catch (err) {

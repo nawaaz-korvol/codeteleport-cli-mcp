@@ -211,4 +211,84 @@ describe("CodeTeleportClient", () => {
 			} catch {}
 		});
 	});
+
+	describe("getVersions", () => {
+		it("returns version history for a session", async () => {
+			mockFetch.mockResolvedValueOnce(
+				mockResponse(200, {
+					sessionId: "sess-001",
+					currentVersion: 3,
+					versions: [
+						{ version: 3, sizeBytes: 5000, checksum: "sha256:ccc", createdAt: "2026-04-01T10:00:00Z" },
+						{ version: 2, sizeBytes: 4000, checksum: "sha256:bbb", createdAt: "2026-03-31T08:00:00Z" },
+					],
+					limit: 2,
+				}),
+			);
+
+			const client = new CodeTeleportClient({ apiUrl, token });
+			const result = await client.getVersions("sess-001");
+			expect(result.sessionId).toBe("sess-001");
+			expect(result.currentVersion).toBe(3);
+			expect(result.versions).toHaveLength(2);
+			expect(result.limit).toBe(2);
+		});
+	});
+
+	describe("getDownloadUrl with version", () => {
+		it("passes version query param when specified", async () => {
+			mockFetch.mockResolvedValueOnce(
+				mockResponse(200, {
+					downloadUrl: "https://r2.test/download",
+					version: 2,
+					session: { id: "sess-001", sourceCwd: "/test", sourceUserDir: "/test", sourceMachine: null, metadata: null },
+				}),
+			);
+
+			const client = new CodeTeleportClient({ apiUrl, token });
+			const result = await client.getDownloadUrl("sess-001", 2);
+			expect(result.version).toBe(2);
+
+			// Verify the URL includes version param
+			const calledUrl = mockFetch.mock.calls[0][0];
+			expect(calledUrl).toContain("version=2");
+		});
+
+		it("omits version param when not specified", async () => {
+			mockFetch.mockResolvedValueOnce(
+				mockResponse(200, {
+					downloadUrl: "https://r2.test/download",
+					version: 3,
+					session: { id: "sess-001", sourceCwd: "/test", sourceUserDir: "/test", sourceMachine: null, metadata: null },
+				}),
+			);
+
+			const client = new CodeTeleportClient({ apiUrl, token });
+			const result = await client.getDownloadUrl("sess-001");
+			expect(result.version).toBe(3);
+
+			const calledUrl = mockFetch.mock.calls[0][0];
+			expect(calledUrl).not.toContain("version=");
+		});
+	});
+
+	describe("initiateUpload response", () => {
+		it("returns version number from upload", async () => {
+			mockFetch.mockResolvedValueOnce(
+				mockResponse(200, { uploadUrl: "https://r2.test/upload", sessionRecordId: "sess-001", version: 2 }),
+			);
+
+			const client = new CodeTeleportClient({ apiUrl, token });
+			const result = await client.initiateUpload({
+				sessionId: "sess-001",
+				sourceMachine: "test",
+				sourceCwd: "/test",
+				sourceUserDir: "/test",
+				sizeBytes: 1000,
+				checksum: "sha256:abc",
+				metadata: { messageCount: 1 },
+			});
+			expect(result.version).toBe(2);
+		});
+	});
 });

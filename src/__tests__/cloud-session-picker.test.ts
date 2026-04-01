@@ -11,6 +11,8 @@ function makeCloudSession(overrides: Partial<SessionListItem> = {}): SessionList
 		sourceUserDir: "/Users/alice",
 		sizeBytes: 5_300_000,
 		metadata: { messageCount: 3490, projectName: "my-project" },
+		currentVersion: 1,
+		versionCount: 1,
 		createdAt: "2026-03-27T14:30:00.000Z",
 		tags: [],
 		...overrides,

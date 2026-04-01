@@ -55,14 +55,7 @@ export function registerTools(server: McpServer) {
 			const session = detectCurrentSession();
 			const bundle = await bundleSession({ sessionId: session.sessionId, cwd: session.cwd });
 
-			// Auto-overwrite: delete existing session if it exists
-			try {
-				await client.deleteSession(bundle.sessionId);
-			} catch {
-				// Ignore — session may not exist yet
-			}
-
-			const { uploadUrl } = await client.initiateUpload({
+			const { uploadUrl, version } = await client.initiateUpload({
 				sessionId: bundle.sessionId,
 				sourceMachine: config.deviceName,
 				sourceCwd: bundle.sourceCwd,
@@ -88,6 +81,7 @@ export function registerTools(server: McpServer) {
 						text: [
 							"Session teleported to CodeTeleport",
 							`  id      : ${bundle.sessionId}`,
+							`  version : ${version}`,
 							`  size    : ${(bundle.sizeBytes / 1024).toFixed(0)} KB`,
 							`  machine : ${config.deviceName}`,
 							`  messages: ${bundle.metadata.messageCount || "unknown"}`,
@@ -117,6 +111,7 @@ export function registerTools(server: McpServer) {
 			].join("\n"),
 			inputSchema: z.object({
 				sessionId: z.string().optional().describe("Pull a specific session by ID"),
+				version: z.number().optional().describe("Pull a specific version (default: latest)"),
 				targetDir: z.string().optional().describe("Anchor session at this directory path"),
 				machine: z.string().optional().describe("Filter by source machine name"),
 				limit: z.number().optional().describe("Max sessions to list"),
@@ -127,7 +122,10 @@ export function registerTools(server: McpServer) {
 			const client = new CodeTeleportClient({ apiUrl: config.apiUrl, token: config.token });
 
 			if (args.sessionId) {
-				const { downloadUrl } = await client.getDownloadUrl(args.sessionId as string);
+				const { downloadUrl } = await client.getDownloadUrl(
+					args.sessionId as string,
+					args.version as number | undefined,
+				);
 				const tmpFile = path.join(os.tmpdir(), `codeteleport-${args.sessionId}.tar.gz`);
 
 				try {
@@ -297,6 +295,50 @@ export function registerTools(server: McpServer) {
 						: `${(s.sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 				const time = s.lastMessageAt ? new Date(s.lastMessageAt).toLocaleString() : "unknown";
 				lines.push(`  ${id}  ${s.projectName}  ${s.messageCount} msgs  ${time}  ${size}`);
+			}
+
+			return { content: [{ type: "text" as const, text: lines.join("\n") }] };
+		}),
+	);
+
+	server.registerTool(
+		"teleport_versions",
+		{
+			description: [
+				"Show version history for a session stored in CodeTeleport.",
+				"Returns all versions with size, checksum, and timestamp.",
+				"",
+				"Examples:",
+				'  "show me the versions of this session"',
+				'  "what versions do I have for c3a05473"',
+			].join("\n"),
+			inputSchema: z.object({
+				sessionId: z.string().describe("Session ID to get versions for"),
+			}),
+		},
+		safeToolHandler(async (args) => {
+			const config = readConfig();
+			const client = new CodeTeleportClient({ apiUrl: config.apiUrl, token: config.token });
+
+			const result = await client.getVersions(args.sessionId as string);
+
+			if (result.versions.length === 0) {
+				return { content: [{ type: "text" as const, text: "No versions found for this session." }] };
+			}
+
+			const lines = [
+				`Session ${result.sessionId} — ${result.versions.length} version${result.versions.length !== 1 ? "s" : ""}`,
+				`  Version limit: ${result.limit} (${result.limit <= 2 ? "free" : "pro"} plan)`,
+				"",
+			];
+
+			for (const v of result.versions) {
+				const size =
+					v.sizeBytes < 1024 * 1024
+						? `${(v.sizeBytes / 1024).toFixed(0)} KB`
+						: `${(v.sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+				const latest = v.version === result.currentVersion ? " (latest)" : "";
+				lines.push(`  v${v.version}  ${size}  ${new Date(v.createdAt).toLocaleString()}${latest}`);
 			}
 
 			return { content: [{ type: "text" as const, text: lines.join("\n") }] };
