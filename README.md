@@ -7,7 +7,7 @@
 Push a conversation from one machine, pull it on another, resume right where you left off.
 
 [![npm version](https://img.shields.io/npm/v/codeteleport?color=10b981&label=npm)](https://www.npmjs.com/package/codeteleport)
-[![License: MIT](https://img.shields.io/badge/license-MIT-10b981)](https://github.com/nawaaz-korvol/codeteleport-mcp/blob/main/LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-10b981)](https://github.com/nawaaz-korvol/codeteleport-cli-mcp/blob/main/LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-10b981)](https://docs.codeteleport.com/getting-started/installation/)
 [![Docs](https://img.shields.io/badge/docs-docs.codeteleport.com-10b981)](https://docs.codeteleport.com)
 
@@ -186,7 +186,7 @@ The CLI and MCP server are fully open source under the MIT license. The cloud sy
 | **Dashboard** | [app.codeteleport.com](https://app.codeteleport.com) |
 | **Website** | [codeteleport.com](https://codeteleport.com) |
 | **npm** | [codeteleport](https://www.npmjs.com/package/codeteleport) |
-| **GitHub** | [nawaaz-korvol/codeteleport-mcp](https://github.com/nawaaz-korvol/codeteleport-mcp) |
+| **GitHub** | [nawaaz-korvol/codeteleport-cli-mcp](https://github.com/nawaaz-korvol/codeteleport-cli-mcp) |
 
 ---
 

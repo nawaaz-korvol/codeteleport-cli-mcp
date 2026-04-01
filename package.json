@@ -5,7 +5,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/nawaaz-korvol/codeteleport-mcp"
+		"url": "https://github.com/nawaaz-korvol/codeteleport-cli-mcp"
 	},
 	"keywords": ["claude", "claude-code", "mcp", "sync", "teleport", "sessions"],
 	"bin": {
