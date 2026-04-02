@@ -116,4 +116,16 @@ describe("formatCloudSessionRow", () => {
 		const row = formatCloudSessionRow(1, session);
 		expect(row).toContain("feature-work");
 	});
+
+	it("shows version info when versionCount > 1", () => {
+		const session = makeCloudSession({ currentVersion: 3, versionCount: 3 });
+		const row = formatCloudSessionRow(1, session);
+		expect(row).toContain("v3");
+	});
+
+	it("does not show version for single version", () => {
+		const session = makeCloudSession({ currentVersion: 1, versionCount: 1 });
+		const row = formatCloudSessionRow(1, session);
+		expect(row).not.toContain("v1");
+	});
 });

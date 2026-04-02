@@ -57,6 +57,7 @@ export function formatCloudSessionRow(index: number, session: SessionListItem): 
 	const msgs = session.metadata?.messageCount ? `${String(session.metadata.messageCount).padStart(6)} msgs` : "";
 	const size = formatSize(session.sizeBytes).padStart(8);
 	const label = session.label ? `  [${session.label}]` : "";
+	const ver = session.versionCount > 1 ? `  v${session.currentVersion} (${session.versionCount})` : "";
 
-	return `  ${index})  ${id}  ${project}  ${machine}  ${msgs}  ${size}${label}`;
+	return `  ${index})  ${id}  ${project}  ${machine}  ${msgs}  ${size}${ver}${label}`;
 }
