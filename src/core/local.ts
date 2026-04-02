@@ -98,7 +98,7 @@ function scanDirectory(projectsDir: string, encodedFilter?: string): LocalSessio
 }
 
 /**
- * Scan ~/.claude/projects/ for all local Claude Code sessions.
+ * Scan ~/.claude/projects/ for all local AI coding sessions.
  * Returns sessions sorted by lastMessageAt descending (most recent first).
  */
 export function scanLocalSessions(claudeDir: string = CLAUDE_DIR): LocalSession[] {

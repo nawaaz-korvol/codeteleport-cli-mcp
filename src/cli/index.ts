@@ -10,7 +10,7 @@ import { versionsCommand } from "./commands/versions";
 
 const program = new Command();
 
-program.name("codeteleport").description("Teleport Claude Code sessions between machines").version("0.2.0");
+program.name("codeteleport").description("Teleport AI coding sessions between machines").version("0.2.0");
 
 program.addCommand(authCommand);
 program.addCommand(pushCommand);

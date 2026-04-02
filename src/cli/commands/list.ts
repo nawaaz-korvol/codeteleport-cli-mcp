@@ -46,7 +46,7 @@ async function listLocal(opts: { push?: boolean; json?: boolean }) {
 	const sessions = scanLocalSessions();
 
 	if (sessions.length === 0) {
-		console.log("No local Claude Code sessions found.");
+		console.log("No local AI coding sessions found.");
 		return;
 	}
 

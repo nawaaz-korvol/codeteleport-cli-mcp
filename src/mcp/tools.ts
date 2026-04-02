@@ -33,7 +33,7 @@ export function registerTools(server: McpServer) {
 		"teleport_push",
 		{
 			description: [
-				"Push the current Claude Code session to CodeTeleport cloud storage.",
+				"Push the current AI coding session to CodeTeleport cloud storage.",
 				"Bundles the full conversation (JSONL, subagents, file history, paste cache, shell snapshots)",
 				"and uploads it so you can resume on another machine.",
 				"If the session was previously pushed, it will be overwritten with the latest version.",
@@ -268,7 +268,7 @@ export function registerTools(server: McpServer) {
 		"teleport_local_list",
 		{
 			description: [
-				"List all Claude Code sessions on the local machine.",
+				"List all AI coding sessions on the local machine.",
 				"Scans ~/.claude/projects/ for session files and shows session ID, project name,",
 				"message count, timestamps, and file size.",
 				"No cloud access needed — reads directly from the local filesystem.",
@@ -283,7 +283,7 @@ export function registerTools(server: McpServer) {
 			const sessions = scanLocalSessions();
 
 			if (sessions.length === 0) {
-				return { content: [{ type: "text" as const, text: "No local Claude Code sessions found." }] };
+				return { content: [{ type: "text" as const, text: "No local AI coding sessions found." }] };
 			}
 
 			const lines = [`Local sessions (${sessions.length} found):`, ""];

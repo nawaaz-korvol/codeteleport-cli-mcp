@@ -1,11 +1,11 @@
 {
 	"name": "codeteleport",
-	"version": "0.2.0",
-	"description": "Teleport Claude Code sessions between machines",
+	"version": "0.2.1",
+	"description": "Teleport AI coding sessions between machines",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/nawaaz-korvol/codeteleport-cli-mcp"
+		"url": "https://github.com/korvol/codeteleport"
 	},
 	"keywords": ["claude", "claude-code", "mcp", "sync", "teleport", "sessions"],
 	"bin": {

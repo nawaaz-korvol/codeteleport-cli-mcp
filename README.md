@@ -5,7 +5,7 @@
 Push a conversation from one machine, pull it on another, resume right where you left off.
 
 [![npm version](https://img.shields.io/npm/v/codeteleport?color=10b981&label=npm)](https://www.npmjs.com/package/codeteleport)
-[![License: MIT](https://img.shields.io/badge/license-MIT-10b981)](https://github.com/nawaaz-korvol/codeteleport-cli-mcp/blob/main/LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-10b981)](https://github.com/korvol/codeteleport/blob/main/LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-10b981)](https://docs.codeteleport.com/getting-started/installation/)
 [![Docs](https://img.shields.io/badge/docs-docs.codeteleport.com-10b981)](https://docs.codeteleport.com)
 
@@ -13,7 +13,7 @@ Push a conversation from one machine, pull it on another, resume right where you
 
 ## The Problem
 
-You're deep in a Claude Code session on your work laptop — hundreds of messages, dozens of file edits, a full mental model of your codebase built up over hours. Time to head home. You close the lid, open your desktop, and that entire conversation is stuck on the other machine. The context, the file history, the tool calls, the subagent work — all of it, inaccessible.
+You're deep in an AI coding session on your work laptop — hundreds of messages, dozens of file edits, a full mental model of your codebase built up over hours. Time to head home. You close the lid, open your desktop, and that entire conversation is stuck on the other machine. The context, the file history, the tool calls, the subagent work — all of it, inaccessible.
 
 ## The Solution
 
@@ -64,7 +64,7 @@ That's it. Your full conversation — every message, every file edit, every tool
 
 You're working in `~/projects/my-app` on Machine A. When you push:
 
-1. CodeTeleport detects the Claude Code session tied to your current directory
+1. CodeTeleport detects the AI coding session tied to your current directory
 2. It bundles everything — conversation log (JSONL), file history, subagent logs, paste cache, shell snapshots — into a compressed `.tar.gz`
 3. The bundle is uploaded to secure cloud storage, tagged with the original machine and directory path
 
@@ -113,7 +113,7 @@ Seven tools available inside Claude Code:
 | `teleport_push` | Push the current session to the cloud (creates a new version) |
 | `teleport_pull` | Pull a session from the cloud (optionally a specific version) |
 | `teleport_list` | List cloud sessions with metadata |
-| `teleport_local_list` | List all local Claude Code sessions on this machine |
+| `teleport_local_list` | List all local AI coding sessions on this machine |
 | `teleport_versions` | Show version history for a session |
 | `teleport_status` | Account info, plan, usage |
 | `teleport_delete` | Delete a session and all its versions from the cloud |
@@ -227,8 +227,8 @@ The CLI and MCP server are open source under the MIT license. Cloud sync has a f
 | **Dashboard** | [app.codeteleport.com](https://app.codeteleport.com) |
 | **Website** | [codeteleport.com](https://codeteleport.com) |
 | **npm** | [codeteleport](https://www.npmjs.com/package/codeteleport) |
-| **GitHub** | [nawaaz-korvol/codeteleport-cli-mcp](https://github.com/nawaaz-korvol/codeteleport-cli-mcp) |
-| **Support** | [support.codeteleport.com](https://support.codeteleport.com) · [GitHub Issues](https://github.com/nawaaz-korvol/codeteleport-cli-mcp/issues) |
+| **GitHub** | [korvol/codeteleport](https://github.com/korvol/codeteleport) |
+| **Support** | [support.codeteleport.com](https://support.codeteleport.com) · [GitHub Issues](https://github.com/korvol/codeteleport/issues) |
 | **Discord** | [discord.gg/c69JYPWS](https://discord.gg/c69JYPWS) |
 
 ---
