@@ -1,16 +1,52 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { CLAUDE_DIR } from "../shared/constants";
 import type { SessionInfo } from "../shared/types";
 
 /**
- * Walk up the process tree from startPid, looking for a PID
- * that has a session file at ~/.claude/sessions/<pid>.json.
- * Max 5 levels up (claude → bash → this script).
+ * Look up the parent PID of a process, cross-platform.
+ * - Unix/macOS: `ps -o ppid= -p <pid>`
+ * - Windows: PowerShell CIM (`Get-CimInstance Win32_Process`) — `ps` is Unix-only,
+ *   so the old `ps` call threw on Windows and broke session detection entirely.
+ * Returns null if the parent can't be determined.
  */
-export function detectCurrentSession(startPid?: number, claudeDir: string = CLAUDE_DIR): SessionInfo {
-	let pid = startPid ?? process.ppid;
+function defaultGetParentPid(pid: number): number | null {
+	try {
+		if (process.platform === "win32") {
+			const out = execFileSync(
+				"powershell.exe",
+				[
+					"-NoProfile",
+					"-NonInteractive",
+					"-Command",
+					`(Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}').ParentProcessId`,
+				],
+				{ encoding: "utf-8", windowsHide: true },
+			).trim();
+			const ppid = Number.parseInt(out, 10);
+			return Number.isFinite(ppid) ? ppid : null;
+		}
+		const out = execFileSync("ps", ["-o", "ppid=", "-p", String(pid)], { encoding: "utf-8" }).trim();
+		const ppid = Number.parseInt(out, 10);
+		return Number.isFinite(ppid) ? ppid : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Walk up the process tree from startPid, looking for a PID that has a session
+ * file at ~/.claude/sessions/<pid>.json (max 5 levels up: claude → shell → script).
+ * `getParentPid` is injectable so the walk can be unit-tested without a real
+ * process tree (and cross-platform).
+ */
+export function detectCurrentSession(
+	startPid: number = process.ppid,
+	claudeDir: string = CLAUDE_DIR,
+	getParentPid: (pid: number) => number | null = defaultGetParentPid,
+): SessionInfo {
+	let pid = startPid;
 	let depth = 0;
 
 	while (pid > 1 && depth < 5) {
@@ -24,12 +60,11 @@ export function detectCurrentSession(startPid?: number, claudeDir: string = CLAU
 			};
 		}
 
-		try {
-			const ppid = execSync(`ps -o ppid= -p ${pid}`, { encoding: "utf-8" }).trim();
-			pid = Number.parseInt(ppid, 10);
-		} catch {
+		const parent = getParentPid(pid);
+		if (parent === null || parent === pid) {
 			break;
 		}
+		pid = parent;
 		depth++;
 	}
 
