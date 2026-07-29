@@ -13,6 +13,21 @@ export const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 
 export const API_URL = "https://api.codeteleport.com/v1";
 
+// ── Local session panel ──
+
+/**
+ * Chunk size for the panel's forward transcript scan. The scan stops as soon as the
+ * first timestamp and the cwd are known, so this bounds memory, not total work.
+ */
+export const SCAN_HEAD_CHUNK = 64 * 1024;
+
+/**
+ * Window read from the end of a transcript for the last timestamp and title entries.
+ * Measured sufficient against 88 real transcripts (88/88 exact vs a full-file parse);
+ * larger windows resolve nothing further.
+ */
+export const SCAN_TAIL_BYTES = 64 * 1024;
+
 // ── Multi-agent bundling ──
 
 /** Agent a bundle is assumed to come from when meta.json predates the agentId field. */
