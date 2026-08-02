@@ -21,6 +21,9 @@ export const PANEL_DIR = path.join(CONFIG_DIR, "panel");
 /** Where `local rm` parks a session's bundle before removing it. */
 export const TRASH_DIR = path.join(PANEL_DIR, "trash");
 
+/** Message-count cache, keyed by (path, size, mtime). Safe to delete at any time. */
+export const PANEL_INDEX_FILE = path.join(PANEL_DIR, "index.json");
+
 /**
  * Chunk size for the panel's forward transcript scan. The scan stops as soon as the
  * first timestamp and the cwd are known, so this bounds memory, not total work.

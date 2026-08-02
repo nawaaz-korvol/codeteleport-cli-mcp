@@ -4,7 +4,13 @@ import { scanLocalSessionsForAgent } from "../core/agents/dispatch";
 import type { LocalSession } from "../core/local";
 import { pathBasename } from "../core/paths";
 import { getAgent } from "../shared/agents";
-import { CLAUDE_DIR, DEFAULT_AGENT_ID, SUPPORTED_AGENT_IDS, assertSupportedAgent } from "../shared/constants";
+import {
+	CLAUDE_DIR,
+	DEFAULT_AGENT_ID,
+	PANEL_INDEX_FILE,
+	SUPPORTED_AGENT_IDS,
+	assertSupportedAgent,
+} from "../shared/constants";
 import { MessageCountCache } from "./count-cache";
 import { scanHead, scanTail } from "./jsonl-scan";
 import type { PanelSession, SatelliteState, ScanPanelOptions, TitleSource } from "./types";
@@ -71,7 +77,16 @@ function scanClaude(claudeDir: string, counts: MessageCountCache, skipSatellites
 	if (!exists(projectsDir)) return [];
 
 	const out: PanelSession[] = [];
-	for (const encodedCwd of fs.readdirSync(projectsDir)) {
+	// A single unreadable directory must not hide every readable session. EACCES on the
+	// projects root previously aborted the scan, so `local list` reported nothing at all
+	// and the web server died on its first request.
+	let projectDirs: string[];
+	try {
+		projectDirs = fs.readdirSync(projectsDir);
+	} catch {
+		return out;
+	}
+	for (const encodedCwd of projectDirs) {
 		const projDir = path.join(projectsDir, encodedCwd);
 		let dirStat: fs.Stats;
 		try {
@@ -81,7 +96,14 @@ function scanClaude(claudeDir: string, counts: MessageCountCache, skipSatellites
 		}
 		if (!dirStat.isDirectory()) continue;
 
-		for (const file of fs.readdirSync(projDir)) {
+		let entries: string[];
+		try {
+			entries = fs.readdirSync(projDir);
+		} catch {
+			// Unreadable project directory — skip it, keep the rest.
+			continue;
+		}
+		for (const file of entries) {
 			// Only depth-1 .jsonl files are sessions. Nested ones are plugin artifacts
 			// (e.g. <projDir>/vercel-plugin/skill-injections.jsonl).
 			if (!file.endsWith(".jsonl")) continue;
@@ -169,7 +191,11 @@ export function scanPanelSessions(options: ScanPanelOptions = {}): PanelSession[
 	for (const id of agentIds) assertSupportedAgent(id);
 
 	const claudeDir = options.claudeDir ?? CLAUDE_DIR;
-	const counts = new MessageCountCache(options.indexFile === undefined ? null : options.indexFile);
+	// Default the cache ON. It was implemented, tested and then never reached in
+	// production because no caller passed `indexFile`, so every `local list` recomputed
+	// message counts from scratch. Measured claude-code-only: ~90ms uncached vs ~32ms
+	// with the index. Pass `indexFile: null` explicitly to disable (tests do).
+	const counts = new MessageCountCache(options.indexFile === undefined ? PANEL_INDEX_FILE : options.indexFile);
 
 	const out: PanelSession[] = [];
 	for (const id of agentIds) {

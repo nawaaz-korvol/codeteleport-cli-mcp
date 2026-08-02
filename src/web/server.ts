@@ -117,7 +117,21 @@ export function createPanelServer(options: PanelServerOptions = {}): Promise<Pan
 				headers: req.headers as Record<string, string | undefined>,
 			};
 			const port = (server.address() as { port: number } | null)?.port ?? 0;
-			const out = handlePanelRequest(panelReq, { ...deps, port });
+			// Defence in depth: one unhandled throw in a request handler takes the whole
+			// panel down, and every later request gets ECONNREFUSED. That already happened
+			// twice — a malformed percent-escape and an unreadable project directory — so
+			// the boundary is guarded rather than relying on every path being careful.
+			let out: ReturnType<typeof handlePanelRequest>;
+			try {
+				out = handlePanelRequest(panelReq, { ...deps, port });
+			} catch (err) {
+				process.stderr.write(`panel: request failed: ${(err as Error).message}\n`);
+				out = {
+					status: 500,
+					headers: { "Content-Type": "application/json; charset=utf-8" },
+					body: JSON.stringify({ error: "internal_error" }),
+				};
+			}
 			res.writeHead(out.status, out.headers);
 			res.end(out.body);
 		});

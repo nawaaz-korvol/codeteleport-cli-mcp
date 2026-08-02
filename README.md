@@ -116,12 +116,14 @@ $ codeteleport local list
 ID                                    LAST USED         AGENT        PROJECT             MSGS   SIZE    TITLE
 ----------------------------------------------------------------------------------------------------------------------------------
 8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93  2026-07-28 19:52  claude-code  api                 3490   5.3MB   Refactor auth middleware
-b41e7a09-52c8-4f13-8d6a-1c9074be2f55  2026-07-28 16:35  codex        web                 812    1.2MB   Fix flaky checkout test
-1d6b3c77-90af-4e21-b5c3-77e2a0d81f4e  2026-07-28 00:10  antigravity  infra               145    420KB   Terraform module cleanup
+b41e7a09-52c8-4f13-8d6a-1c9074be2f55  2026-07-28 16:35  codex        web                 812    1.2MB   b41e7a09
+1d6b3c77-90af-4e21-b5c3-77e2a0d81f4e  2026-07-28 00:10  antigravity  infra               145    420KB   1d6b3c77
 c0a94e15-7b2d-4c88-a10f-3e5d6b9c2047  2026-07-21 14:42  claude-code  old-prototype       96     88KB    Spike: queue backend  [STRANDED]
 
 4 sessions, 1 stranded
 ```
+
+Titles come from the transcript. Claude Code records one, so its rows show a real title; Codex and Antigravity do not expose one yet, so those rows fall back to the first eight characters of the session id.
 
 A session is **stranded** when its project directory no longer exists on disk — you renamed or moved the repo and the conversation lost its anchor. `local move` re-anchors it.
 
@@ -140,7 +142,7 @@ codeteleport local rm <id>                 # Delete a session (backed up to tras
 codeteleport local restore <id>            # Bring a deleted session back
 ```
 
-`move` and `rm` also take `--agent <id>` (default `claude-code`), `--dry-run` to print the plan without touching anything, and `-y/--yes` to skip the confirmation. Without `--yes` they show you the same plan and ask before acting. `rm --no-backup` skips the trash bundle.
+`move` and `rm` also take `--agent <id>` (by default the owning agent is resolved from the session itself, so you rarely need it), `--dry-run` to print the plan without touching anything, and `-y/--yes` to skip the confirmation. Without `--yes` they show you the same plan and ask before acting. `rm --no-backup` skips the trash bundle.
 
 ### Move
 

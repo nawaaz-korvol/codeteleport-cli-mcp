@@ -371,6 +371,11 @@ export async function deletePanelSession(options: DeleteOptions): Promise<Delete
 		return { sessionId: session.sessionId, removedPaths: targets, freedBytes, dryRun: true };
 	}
 
+	// Baseline BEFORE the backup: bundling is async and takes real time, and that window
+	// is exactly when a live agent can append. Taking the stamp immediately before the
+	// comparison (as this did) meant the guard could never fire.
+	const before = stamp(paths.jsonl);
+
 	let backupPath: string | undefined;
 	if (options.backup !== false) {
 		const dir = trashDir(dirs);
@@ -398,7 +403,6 @@ export async function deletePanelSession(options: DeleteOptions): Promise<Delete
 		}
 	}
 
-	const before = stamp(paths.jsonl);
 	assertUnchanged(paths.jsonl, before, "Session transcript");
 	const { removed, freed } = removeSessionPaths(paths);
 
@@ -411,6 +415,23 @@ export async function deletePanelSession(options: DeleteOptions): Promise<Delete
 	};
 }
 
+/**
+ * Parse a trash filename, returning its sequence number when it belongs to `sessionId`.
+ *
+ * Deliberately string comparison, not a RegExp built from the id: interpolating the id
+ * into a pattern made `.` a wildcard, so restoring `.1111111-…` matched — and restored —
+ * a *different* session's backup, while an id containing `((` threw a regex syntax error
+ * instead of reporting no backup.
+ */
+function trashSequence(name: string, sessionId: string): number | null {
+	const prefix = `${sessionId}-`;
+	const suffix = ".tar.gz";
+	if (!name.startsWith(prefix) || !name.endsWith(suffix)) return null;
+	const digits = name.slice(prefix.length, name.length - suffix.length);
+	if (digits.length === 0 || !/^\d+$/.test(digits)) return null;
+	return Number.parseInt(digits, 10);
+}
+
 /** Highest existing trash sequence for a session, plus one. */
 function nextTrashSequence(dir: string, sessionId: string): number {
 	let max = 0;
@@ -421,8 +442,8 @@ function nextTrashSequence(dir: string, sessionId: string): number {
 		return 1;
 	}
 	for (const name of entries) {
-		const m = name.match(new RegExp(`^${sessionId}-(\\d+)\\.tar\\.gz$`));
-		if (m) max = Math.max(max, Number.parseInt(m[1], 10));
+		const seq = trashSequence(name, sessionId);
+		if (seq !== null) max = Math.max(max, seq);
 	}
 	return max + 1;
 }
@@ -436,9 +457,9 @@ function findBackup(dir: string, sessionId: string): string | null {
 		return null;
 	}
 	const matches = entries
-		.map((name) => ({ name, m: name.match(new RegExp(`^${sessionId}-(\\d+)\\.tar\\.gz$`)) }))
-		.filter((x) => x.m)
-		.sort((a, b) => Number.parseInt(b.m?.[1] ?? "0", 10) - Number.parseInt(a.m?.[1] ?? "0", 10));
+		.map((name) => ({ name, seq: trashSequence(name, sessionId) }))
+		.filter((x): x is { name: string; seq: number } => x.seq !== null)
+		.sort((a, b) => b.seq - a.seq);
 	return matches.length > 0 ? path.join(dir, matches[0].name) : null;
 }
 

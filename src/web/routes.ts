@@ -129,7 +129,16 @@ export function handlePanelRequest(req: PanelRequest, deps: RouteDeps): PanelRes
 
 	const detail = pathname.match(/^\/api\/sessions\/([^/]+)$/);
 	if (detail) {
-		const found = deps.readSession(decodeURIComponent(detail[1]));
+		// decodeURIComponent throws URIError on a malformed escape such as "%ZZ". Left
+		// unhandled that propagated out of the request handler and killed the process, so
+		// one bad URL took the whole panel down and every later request got ECONNREFUSED.
+		let id: string;
+		try {
+			id = decodeURIComponent(detail[1]);
+		} catch {
+			return json(400, { error: "bad_request" });
+		}
+		const found = deps.readSession(id);
 		return found ? json(200, found) : json(404, { error: "not_found" });
 	}
 
