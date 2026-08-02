@@ -69,7 +69,16 @@ export async function bundleAntigravitySession(options: BundleOptions): Promise<
 		}
 
 		const bundlePath = path.join(outputDir, `antigravity-session-${resolvedId}.tar.gz`);
-		await tar.create({ gzip: true, file: bundlePath, cwd: stagingDir }, fs.readdirSync(stagingDir));
+		// `noMtime`/`portable` make the archive a pure function of its contents.
+		// Staged files are freshly written or copyFileSync'd, so their mtime is "now";
+		// tar records that at second granularity, and two bundles of identical input
+		// hashed differently whenever they straddled a second boundary. That made the
+		// determinism test flaky on loaded CI runners and, more importantly, broke the
+		// guarantee the checksum exists to provide: same content -> same checksum.
+		await tar.create(
+			{ gzip: true, portable: true, noMtime: true, file: bundlePath, cwd: stagingDir },
+			fs.readdirSync(stagingDir),
+		);
 
 		const checksum = await sha256File(bundlePath);
 		const sizeBytes = fs.statSync(bundlePath).size;

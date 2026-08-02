@@ -243,6 +243,13 @@ describe("Round-trip: bundle → unbundle", () => {
 			claudeDir: sourceClaude,
 		});
 
+		// Deliberately cross a second boundary. tar records mtime at second granularity,
+		// and staged files are written/copied fresh so their mtime is "now" — without
+		// noMtime the two archives differ here while passing when both land in the same
+		// second, which is exactly how this test stayed green locally and failed on
+		// loaded CI runners.
+		await new Promise((resolve) => setTimeout(resolve, 1100));
+
 		// Bundle again to a different file
 		const result2 = await bundleSession({
 			sessionId,

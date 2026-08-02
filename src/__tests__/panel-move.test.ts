@@ -94,8 +94,10 @@ describe("panel move", () => {
 			const installed = path.join(dstProj(), `${ID}.jsonl`);
 			expect(fs.existsSync(installed)).toBe(true);
 			const content = fs.readFileSync(installed, "utf-8");
-			expect(content).toContain(dstCwd);
-			expect(content).not.toContain(`"${srcCwd}"`);
+			// JSON-escaped: on Windows the separators are stored as \\ inside the JSONL.
+			const asJson = (p: string) => JSON.stringify(p).slice(1, -1);
+			expect(content).toContain(asJson(dstCwd));
+			expect(content).not.toContain(`"${asJson(srcCwd)}"`);
 			for (const l of content.trim().split("\n")) expect(() => JSON.parse(l)).not.toThrow();
 		});
 

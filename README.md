@@ -71,7 +71,7 @@ You're working in `~/projects/my-app` on Machine A. When you push:
 You sit down at Machine B, `cd` into your project directory, and pull:
 
 1. CodeTeleport downloads the bundle
-2. It sees the session was rooted at `/home/nawaaz/projects/my-app` on the original machine
+2. It sees the session was rooted at `/home/alice/projects/my-app` on the original machine
 3. It rewrites every path in the session to match your current directory — `/home/alice/work/my-app`. This is a two-pass rewrite (source home dir → target home dir, then source cwd → target cwd): a plain text replacement for Claude Code and Codex JSONL transcripts and memory/brain text files, and a binary, length-prefix-aware protobuf rewrite across the whole Antigravity SQLite conversation DB (field-length prefixes are recomputed so message framing stays valid)
 4. The session is installed into the agent's local data directory — e.g. `~/.claude` for Claude Code, `~/.codex` for Codex, `~/.gemini/antigravity-cli` for Antigravity — linked to your current working directory
 

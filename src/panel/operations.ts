@@ -38,9 +38,22 @@ interface SessionPaths {
 	sessionEnvDir: string;
 }
 
-function sessionPaths(claudeDir: string, projDir: string, sessionId: string): SessionPaths {
+/**
+ * Session-owned paths.
+ *
+ * The transcript path is taken from the scan, never rebuilt from the id: only Claude Code
+ * files are named `<id>.jsonl`. Codex rollouts are `rollout-<ts>-<id>.jsonl`, so
+ * reconstructing the name produced a path that did not exist — `rm` on a Codex session
+ * found nothing to remove and reported success having deleted nothing.
+ *
+ * The satellite directories are Claude-specific by construction (`file-history/<id>`,
+ * `session-env/<id>`, `<projDir>/<id>/`). Other agents have no equivalent, so for them
+ * these resolve to paths that simply do not exist and are skipped.
+ */
+function sessionPaths(claudeDir: string, jsonlPath: string, sessionId: string): SessionPaths {
+	const projDir = path.dirname(jsonlPath);
 	return {
-		jsonl: path.join(projDir, `${sessionId}.jsonl`),
+		jsonl: jsonlPath,
 		subagentDir: path.join(projDir, sessionId),
 		fileHistoryDir: path.join(claudeDir, "file-history", sessionId),
 		sessionEnvDir: path.join(claudeDir, "session-env", sessionId),
@@ -83,18 +96,48 @@ function trashDir(options: PanelDirs): string {
 	return options.panelDir ? path.join(options.panelDir, "trash") : TRASH_DIR;
 }
 
-/** Locate a session across the configured agent, or throw. */
-function findSession(sessionId: string, agentId: string, options: PanelDirs): PanelSession {
-	const found = scanPanelSessions({
-		agentId,
-		claudeDir: options.claudeDir,
-		codexDir: options.codexDir,
-		geminiDir: options.geminiDir,
-		indexFile: null,
-		skipSatellites: true,
-	}).find((s) => s.sessionId === sessionId);
-	if (!found) throw new Error(`Session not found: ${sessionId}`);
-	return found;
+/**
+ * Locate a session and resolve which agent owns it.
+ *
+ * Ownership is a property of the session, not something the caller should have to assert.
+ * `local list` defaults to every agent, so users pick an id out of a cross-agent list;
+ * requiring `--agent codex` afterwards — and answering "Session not found" when they
+ * forget — made that list a trap where only a third of what it showed was actionable.
+ *
+ * An explicit `agentId` is still honoured, but if the session actually belongs to a
+ * different agent we say so rather than claiming it doesn't exist.
+ */
+function findSession(sessionId: string, agentId: string | undefined, options: PanelDirs): PanelSession {
+	const scan = (id: string) =>
+		scanPanelSessions({
+			agentId: id,
+			claudeDir: options.claudeDir,
+			codexDir: options.codexDir,
+			geminiDir: options.geminiDir,
+			indexFile: null,
+			skipSatellites: true,
+		});
+
+	if (agentId && agentId !== "all") {
+		const found = scan(agentId).find((s) => s.sessionId === sessionId);
+		if (found) return found;
+		// Not under the requested agent — is it somewhere else?
+		const elsewhere = scan("all").find((s) => s.sessionId === sessionId);
+		if (elsewhere) {
+			throw new Error(
+				`Session ${sessionId} belongs to ${elsewhere.agentId}, not ${agentId}. Retry with --agent ${elsewhere.agentId}.`,
+			);
+		}
+		throw new Error(`Session not found: ${sessionId}`);
+	}
+
+	const matches = scan("all").filter((s) => s.sessionId === sessionId);
+	if (matches.length === 0) throw new Error(`Session not found: ${sessionId}`);
+	if (matches.length > 1) {
+		const agents = matches.map((m) => m.agentId).join(", ");
+		throw new Error(`Session ${sessionId} exists for more than one agent (${agents}). Disambiguate with --agent.`);
+	}
+	return matches[0];
 }
 
 /** Identity of a file at plan time, used to detect a live agent writing underneath us. */
@@ -164,17 +207,18 @@ function satelliteLabels(paths: SessionPaths): string[] {
  * before the final step leaves the original exactly as it was.
  */
 export async function movePanelSession(options: MoveOptions): Promise<MoveResult> {
-	const agentId = options.agentId ?? DEFAULT_AGENT_ID;
-	assertSupportedAgent(agentId);
+	if (options.agentId && options.agentId !== "all") assertSupportedAgent(options.agentId);
 	const dirs = resolveDirs(options);
 	const claudeDir = dirs.claudeDir;
 
-	const session = findSession(options.sessionId, agentId, dirs);
+	const session = findSession(options.sessionId, options.agentId, dirs);
+	// The session knows who owns it; trust that over anything the caller assumed.
+	const agentId = session.agentId;
 	assertValidTargetDir(options.targetDir, dirs);
 
 	const targetDir = path.normalize(options.targetDir);
 	const srcProjDir = path.dirname(session.jsonlPath);
-	const src = sessionPaths(claudeDir, srcProjDir, session.sessionId);
+	const src = sessionPaths(claudeDir, session.jsonlPath, session.sessionId);
 	const satellitesMoved = satelliteLabels(src);
 	const movedBytes =
 		sizeOf(src.jsonl) + sizeOf(src.subagentDir) + sizeOf(src.fileHistoryDir) + sizeOf(src.sessionEnvDir);
@@ -198,7 +242,17 @@ export async function movePanelSession(options: MoveOptions): Promise<MoveResult
 	}
 
 	const dstProjDir = path.join(claudeDir, "projects", encodePath(targetDir));
-	if (exists(path.join(dstProjDir, `${session.sessionId}.jsonl`))) {
+	// Collision detection by scan, for the same reason: only Claude files are named
+	// <id>.jsonl, so a path-based check silently never fires for other agents.
+	const alreadyThere = scanPanelSessions({
+		agentId,
+		claudeDir,
+		codexDir: dirs.codexDir,
+		geminiDir: dirs.geminiDir,
+		indexFile: null,
+		skipSatellites: true,
+	}).some((s) => s.sessionId === session.sessionId && samePath(s.projectPath, targetDir));
+	if (alreadyThere) {
 		throw new Error(
 			`A session with id ${session.sessionId} already exists at ${targetDir} — collision. Use copy to fork it instead.`,
 		);
@@ -237,7 +291,24 @@ export async function movePanelSession(options: MoveOptions): Promise<MoveResult
 
 		// Verify before destroying anything: the transcript must exist, be non-empty and
 		// parse. An unverified destination plus a deleted source is unrecoverable.
-		const installed = path.join(dstProjDir, `${session.sessionId}.jsonl`);
+		//
+		// Locate it by rescanning rather than rebuilding a path. `<claudeDir>/projects/
+		// <encoded>/<id>.jsonl` is the Claude layout; a Codex rollout lands somewhere
+		// else entirely, so the reconstructed path threw ENOENT and move reported failure
+		// — with a "Source left untouched" message that was false — for a move that had
+		// already succeeded.
+		const installedSession = scanPanelSessions({
+			agentId,
+			claudeDir,
+			codexDir: dirs.codexDir,
+			geminiDir: dirs.geminiDir,
+			indexFile: null,
+			skipSatellites: true,
+		}).find((s) => s.sessionId === session.sessionId && samePath(s.projectPath, targetDir));
+		if (!installedSession) {
+			throw new Error(`Move could not be verified: ${session.sessionId} is not listed at ${targetDir}`);
+		}
+		const installed = installedSession.jsonlPath;
 		const content = fs.readFileSync(installed, "utf-8");
 		if (content.trim().length === 0) throw new Error(`Installed transcript is empty: ${installed}`);
 		for (const l of content.split("\n")) {
@@ -245,10 +316,15 @@ export async function movePanelSession(options: MoveOptions): Promise<MoveResult
 			JSON.parse(l);
 		}
 
-		if (!options.keepSource) {
+		// Some agents re-anchor in place: the Codex adapter rewrites the rollout where it
+		// already sits rather than writing a new file elsewhere. There is then no separate
+		// source to remove, and the live-transcript guard would fire on our own write.
+		const movedInPlace = samePath(installed, src.jsonl);
+
+		if (!options.keepSource && !movedInPlace) {
 			options.onBeforeSourceDelete?.();
 			assertUnchanged(src.jsonl, before, "Source transcript");
-			const dst = sessionPaths(claudeDir, dstProjDir, session.sessionId);
+			const dst = sessionPaths(claudeDir, installed, session.sessionId);
 			removeSessionPaths(src, sharedWithDestination(src, dst));
 		}
 		return base;
@@ -279,14 +355,14 @@ export async function movePanelSession(options: MoveOptions): Promise<MoveResult
  * sessions each time.
  */
 export async function deletePanelSession(options: DeleteOptions): Promise<DeleteResult> {
-	const agentId = options.agentId ?? DEFAULT_AGENT_ID;
-	assertSupportedAgent(agentId);
+	if (options.agentId && options.agentId !== "all") assertSupportedAgent(options.agentId);
 	const dirs = resolveDirs(options);
 	const claudeDir = dirs.claudeDir;
 
-	const session = findSession(options.sessionId, agentId, dirs);
+	const session = findSession(options.sessionId, options.agentId, dirs);
+	const agentId = session.agentId;
 	const projDir = path.dirname(session.jsonlPath);
-	const paths = sessionPaths(claudeDir, projDir, session.sessionId);
+	const paths = sessionPaths(claudeDir, session.jsonlPath, session.sessionId);
 
 	const targets = [paths.jsonl, paths.subagentDir, paths.fileHistoryDir, paths.sessionEnvDir].filter(exists);
 	const freedBytes = targets.reduce((a, t) => a + sizeOf(t), 0);

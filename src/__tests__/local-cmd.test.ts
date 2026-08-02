@@ -245,6 +245,22 @@ describe("local command surface", () => {
 			}
 		});
 
+		it("does not pin move/rm to a single agent by default", () => {
+			// `local list` shows every agent, so defaulting these to claude-code made the
+			// list a trap: a Codex session picked from it failed with "Session not found".
+			for (const name of ["move", "rm"]) {
+				const cmd = localCommand.commands.find((c) => c.name() === name);
+				const agent = cmd?.options.find((o) => o.long === "--agent");
+				expect(agent, `${name} --agent`).toBeDefined();
+				expect(agent?.defaultValue, `${name} --agent default`).toBeUndefined();
+			}
+		});
+
+		it("lets restore preview which backup it would use", () => {
+			const restore = localCommand.commands.find((c) => c.name() === "restore");
+			expect(restore?.options.map((o) => o.long)).toContain("--dry-run");
+		});
+
 		it("requires a target for move", () => {
 			const move = localCommand.commands.find((c) => c.name() === "move");
 			expect(move?.options.some((o) => o.long === "--to" && o.required)).toBe(true);

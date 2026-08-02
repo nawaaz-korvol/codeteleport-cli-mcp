@@ -176,7 +176,7 @@ const moveCmd = new Command("move")
 	.description("Re-anchor a session at a different project path")
 	.argument("<session-id>", "Session to move")
 	.requiredOption("--to <path>", "Absolute path to anchor the session at")
-	.option("--agent <id>", "Agent that owns the session", "claude-code")
+	.option("--agent <id>", "Agent that owns the session (default: resolved from the session)")
 	.option("--dry-run", "Show the plan without changing anything")
 	.option("-y, --yes", "Skip the confirmation prompt")
 	.action(async (sessionId: string, opts) => {
@@ -202,7 +202,7 @@ const moveCmd = new Command("move")
 const rmCmd = new Command("rm")
 	.description("Delete a local session (backed up to trash by default)")
 	.argument("<session-id>", "Session to delete")
-	.option("--agent <id>", "Agent that owns the session", "claude-code")
+	.option("--agent <id>", "Agent that owns the session (default: resolved from the session)")
 	.option("--dry-run", "Show what would be removed without removing it")
 	.option("--no-backup", "Do not write a trash bundle first")
 	.option("-y, --yes", "Skip the confirmation prompt")
@@ -229,9 +229,13 @@ const rmCmd = new Command("rm")
 const restoreCmd = new Command("restore")
 	.description("Restore a deleted session from the trash")
 	.argument("<session-id>", "Session to restore")
-	.action(async (sessionId: string) => {
+	.option("--dry-run", "Show which backup would be restored without restoring it")
+	.action(async (sessionId: string, opts) => {
 		try {
-			console.log(describeRestore(await restorePanelSession({ sessionId })));
+			const res = await restorePanelSession({ sessionId, dryRun: opts.dryRun === true });
+			console.log(
+				res.dryRun ? `Dry run — would restore ${res.sessionId} from ${res.backupPath}` : describeRestore(res),
+			);
 		} catch (err) {
 			fail(err);
 		}
