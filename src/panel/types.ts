@@ -24,8 +24,18 @@ export interface PanelSession extends LocalSession {
 	/** projectPath no longer exists on disk — a relink candidate. */
 	stranded: boolean;
 	satellites: SatelliteState;
-	/** Ready-to-run resume command for this session's agent. */
+	/** Ready-to-run resume command for this session's agent, e.g. `claude --resume <id>`. */
 	resumeCommand: string;
+	/**
+	 * The command a user actually needs: `cd <projectPath> && <resumeCommand>`.
+	 *
+	 * The bare resume command FAILS from the wrong directory — verified against a real
+	 * session: run from /tmp it prints "No conversation found with session ID", run from
+	 * the session's own cwd it resumes. Precomputed here rather than assembled at each
+	 * call site so the CLI, the web view's displayed text and its clipboard cannot drift
+	 * apart — which is exactly how they had drifted.
+	 */
+	fullResumeCommand: string;
 }
 
 /** Directory overrides shared by every panel operation (tests, non-default homes). */

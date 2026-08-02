@@ -45,6 +45,7 @@ function finalise(
 	titleSource: TitleSource,
 	satellites: SatelliteState,
 ): PanelSession {
+	const resumeCommand = `${getAgent(agentId).resumeCommand} ${base.sessionId}`;
 	return {
 		...base,
 		agentId,
@@ -52,7 +53,8 @@ function finalise(
 		titleSource: title ? titleSource : "id",
 		stranded: base.projectPath.length > 0 && !exists(base.projectPath),
 		satellites,
-		resumeCommand: `${getAgent(agentId).resumeCommand} ${base.sessionId}`,
+		resumeCommand,
+		fullResumeCommand: base.projectPath ? `cd ${base.projectPath} && ${resumeCommand}` : resumeCommand,
 	};
 }
 

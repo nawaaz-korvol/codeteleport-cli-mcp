@@ -41,6 +41,7 @@ function session(over: Partial<PanelSession> = {}): PanelSession {
 		stranded: false,
 		satellites: { hasSubagents: false, hasFileHistory: false, hasSessionEnv: false, hasMemory: false },
 		resumeCommand: "claude --resume 11111111-2222-4333-8444-555555555555",
+		fullResumeCommand: "cd /Users/alice/projects/alpha && claude --resume 11111111-2222-4333-8444-555555555555",
 		...over,
 	};
 }

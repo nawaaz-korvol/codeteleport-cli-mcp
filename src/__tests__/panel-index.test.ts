@@ -269,6 +269,20 @@ describe("panel session index", () => {
 			expect(s.satellites.hasMemory).toBe(true);
 		});
 
+		it("carries a full resume command that includes the cd", () => {
+			// `claude --resume <id>` alone FAILS from the wrong directory — verified on a
+			// real session: from /tmp it prints "No conversation found with session ID",
+			// from the session's own cwd it resumes. So the cd is required, not a nicety,
+			// and it lives on the session so the CLI, the web view's displayed text and
+			// the web view's clipboard cannot disagree about it.
+			const cwd = "/Users/alice/projects/alpha";
+			const id = "0f000000-0000-4000-8000-000000000001";
+			createSession(cwd, id, transcript(cwd, id));
+			const s = scanPanelSessions({ agentId: "claude-code", claudeDir, indexFile })[0];
+			expect(s.fullResumeCommand).toBe(`cd ${cwd} && claude --resume ${id}`);
+			expect(s.fullResumeCommand).toContain(s.resumeCommand);
+		});
+
 		it("carries the agent id and a runnable resume command", () => {
 			const cwd = "/Users/alice/projects/alpha";
 			const id = "0d000000-0000-0000-0000-000000000001";

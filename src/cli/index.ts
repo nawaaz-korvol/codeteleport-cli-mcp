@@ -10,6 +10,7 @@ import { pushCommand } from "./commands/push";
 import { setupCommand } from "./commands/setup";
 import { statusCommand } from "./commands/status";
 import { versionsCommand } from "./commands/versions";
+import { webCommand } from "./commands/web";
 
 const program = new Command();
 
@@ -21,6 +22,7 @@ program.addCommand(pushCommand);
 program.addCommand(pullCommand);
 program.addCommand(listCommand);
 program.addCommand(localCommand);
+program.addCommand(webCommand);
 program.addCommand(statusCommand);
 program.addCommand(versionsCommand);
 program.addCommand(configCommand);
