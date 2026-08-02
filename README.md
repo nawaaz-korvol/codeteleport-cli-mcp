@@ -104,6 +104,113 @@ Free accounts keep 2 versions per session. Pro keeps 10. Older versions rotate o
 
 ---
 
+## Local Session Panel
+
+**No account, no login, no network.** `codeteleport local` manages the sessions already on your machine. It never talks to the API and never reads your token — that boundary is enforced by a test, not a promise.
+
+It is also the one place that sees **every agent at once**. Claude Code, Codex and Antigravity sessions land in a single list, sorted by recency:
+
+```
+$ codeteleport local list
+
+ID                                    LAST USED         AGENT        PROJECT             MSGS   SIZE    TITLE
+----------------------------------------------------------------------------------------------------------------------------------
+8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93  2026-07-28 19:52  claude-code  api                 3490   5.3MB   Refactor auth middleware
+b41e7a09-52c8-4f13-8d6a-1c9074be2f55  2026-07-28 16:35  codex        web                 812    1.2MB   Fix flaky checkout test
+1d6b3c77-90af-4e21-b5c3-77e2a0d81f4e  2026-07-28 00:10  antigravity  infra               145    420KB   Terraform module cleanup
+c0a94e15-7b2d-4c88-a10f-3e5d6b9c2047  2026-07-21 14:42  claude-code  old-prototype       96     88KB    Spike: queue backend  [STRANDED]
+
+4 sessions, 1 stranded
+```
+
+A session is **stranded** when its project directory no longer exists on disk — you renamed or moved the repo and the conversation lost its anchor. `local move` re-anchors it.
+
+### Commands
+
+```bash
+codeteleport local list                    # All sessions, all agents, newest first
+codeteleport local list --agent codex      # claude-code | codex | antigravity | all (default: all)
+codeteleport local list --stranded         # Only sessions whose project dir is gone
+codeteleport local list --project <path>   # Only sessions anchored at this path
+codeteleport local list --limit 20         # Show at most N
+codeteleport local list --json             # Full session objects, for scripting
+
+codeteleport local move <id> --to <path>   # Re-anchor a session at a different project path
+codeteleport local rm <id>                 # Delete a session (backed up to trash first)
+codeteleport local restore <id>            # Bring a deleted session back
+```
+
+`move` and `rm` also take `--agent <id>` (default `claude-code`), `--dry-run` to print the plan without touching anything, and `-y/--yes` to skip the confirmation. Without `--yes` they show you the same plan and ask before acting. `rm --no-backup` skips the trash bundle.
+
+### Move
+
+Moving is not a file rename — a session spans its transcript, subagent logs, file history and session env, and the transcript is full of absolute paths. `local move` rebundles and reinstalls it, rewriting every path, then verifies the destination transcript exists and parses **before** removing the source:
+
+```
+$ codeteleport local move 8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93 --to /Users/you/projects/api-v2 --dry-run
+
+Dry run — would move 8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93:
+  from      /Users/you/projects/api
+  to        /Users/you/projects/api-v2
+  size      5.3MB
+  carries   file-history, session-env
+```
+
+### Remove and restore
+
+`rm` bundles the session into a trash archive first, so nothing is unrecoverable. It touches only session state — project `memory/`, `paste-cache/` and `shell-snapshots/` are shared across sessions and are never removed:
+
+```
+$ codeteleport local rm 8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93 -y
+
+Removed 8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93:
+  /Users/you/.claude/projects/-Users-you-projects-api/8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93.jsonl
+  /Users/you/.claude/file-history/8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93
+  /Users/you/.claude/session-env/8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93
+  frees     5.3MB
+  backup    /Users/you/.codeteleport/panel/trash/8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93-0001.tar.gz
+  restore   codeteleport local restore 8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93
+  kept      project memory, paste-cache and shell-snapshots (shared)
+```
+
+`codeteleport local restore <id>` unpacks the newest trash bundle back to where the session was deleted from and prints its resume command.
+
+### Scripting with `--json`
+
+`--json` emits the full session object — not a trimmed display view — so you can pipe it straight into `jq`:
+
+```bash
+codeteleport local list --json | jq '[.[] | select(.stranded)] | length'
+codeteleport local list --agent codex --json | jq -r '.[0].resumeCommand'
+```
+
+```json
+{
+  "sessionId": "8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93",
+  "projectPath": "/Users/you/projects/api",
+  "projectName": "api",
+  "encodedProjectPath": "-Users-you-projects-api",
+  "jsonlPath": "/Users/you/.claude/projects/-Users-you-projects-api/8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93.jsonl",
+  "sizeBytes": 5557452,
+  "messageCount": 3490,
+  "firstMessageAt": "2026-07-21T09:14:02.418Z",
+  "lastMessageAt": "2026-07-28T14:22:31.905Z",
+  "agentId": "claude-code",
+  "title": "Refactor auth middleware",
+  "titleSource": "ai",
+  "stranded": false,
+  "satellites": {
+    "hasSubagents": true,
+    "hasFileHistory": true,
+    "hasSessionEnv": true,
+    "hasMemory": true
+  },
+  "resumeCommand": "claude --resume 8f2c1d40-3b17-4a2e-9c05-6de81a4f7b93"
+}
+```
+
+---
+
 ## MCP Tools
 
 Seven tools available inside your AI coding agent (Claude Code, Codex, or Antigravity):
@@ -118,7 +225,7 @@ Seven tools available inside your AI coding agent (Claude Code, Codex, or Antigr
 | `teleport_status` | Account info, plan, usage |
 | `teleport_delete` | Delete a session and all its versions from the cloud |
 
-`teleport_push` bundles the configured agent's current session and `teleport_local_list` scans that agent's local sessions, so both follow whatever you set with `codeteleport config set agent <id>`.
+`teleport_push` bundles the configured agent's current session and `teleport_local_list` scans that agent's local sessions, so both follow whatever you set with `codeteleport config set agent <id>`. For the cross-agent view — every agent's sessions in one list — use the CLI's [`codeteleport local list`](#local-session-panel).
 
 The MCP server is registered per agent — `codeteleport setup` runs the right command for the chosen agent automatically: `claude mcp add codeteleport -- codeteleport-mcp` (Claude Code), `codex mcp add codeteleport -- codeteleport-mcp` (Codex), or `agy mcp add codeteleport -- codeteleport-mcp` (Antigravity).
 
@@ -140,7 +247,14 @@ codeteleport config            # View current configuration
 codeteleport config set agent <id>  # Switch agent: claude-code | codex | antigravity
 codeteleport delete            # Delete a cloud session
 codeteleport auth login        # Log in (GitHub OAuth or email)
+
+codeteleport local list                   # List local sessions across every agent (no account needed)
+codeteleport local move <id> --to <path>  # Re-anchor a session at a different project path
+codeteleport local rm <id>                # Delete a local session (backed up to trash)
+codeteleport local restore <id>           # Restore a deleted local session
 ```
+
+The `local *` commands work offline with no account — see [Local Session Panel](#local-session-panel).
 
 `codeteleport setup` also offers agent selection interactively (it lists all supported agents from the registry). Setting an unrecognized id fails with `Unknown agent: <id>. Supported: claude-code, codex, antigravity`. The `agent` setting controls only what is bundled and scanned locally (push, local list) — it does not affect pull, which always uses the bundle's own recorded agent.
 
