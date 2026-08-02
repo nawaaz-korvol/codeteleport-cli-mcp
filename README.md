@@ -127,6 +127,21 @@ Titles come from the transcript. Claude Code records one, so its rows show a rea
 
 A session is **stranded** when its project directory no longer exists on disk — you renamed or moved the repo and the conversation lost its anchor. `local move` re-anchors it.
 
+### Browse in a browser
+
+```bash
+codeteleport web                      # opens a local panel and prints its URL
+codeteleport web --no-open            # just print the URL
+codeteleport web --idle-timeout 0     # never exit on idle (default: 60 minutes)
+```
+
+Serves a read-only panel on `127.0.0.1` — list every session across agents, read a
+transcript, search inside transcripts, and copy a ready-to-run resume command.
+
+The link is **single-use per run**: each start mints a fresh token, the page swaps it for
+an in-memory credential and strips it from the address bar, and the server exits after 60
+idle minutes. No account, no network, nothing served off the loopback interface.
+
 ### Commands
 
 ```bash

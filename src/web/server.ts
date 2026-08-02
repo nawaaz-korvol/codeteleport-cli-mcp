@@ -28,6 +28,11 @@ export interface PanelServerOptions {
 	geminiDir?: string;
 	/** Cap on transcripts scanned by a content search. */
 	searchLimit?: number;
+	/**
+	 * Shut down after this many milliseconds with no requests. A forgotten panel should
+	 * not sit listening for days holding a live credential. 0 disables.
+	 */
+	idleTimeoutMs?: number;
 }
 
 export interface PanelServerHandle {
@@ -109,7 +114,10 @@ export function createPanelServer(options: PanelServerOptions = {}): Promise<Pan
 		},
 	};
 
+	const idleTimeoutMs = options.idleTimeoutMs ?? 60 * 60 * 1000;
+
 	return new Promise((resolve, reject) => {
+		let idleTimer: NodeJS.Timeout | null = null;
 		const server = http.createServer((req, res) => {
 			const panelReq: PanelRequest = {
 				method: req.method ?? "GET",
@@ -132,20 +140,46 @@ export function createPanelServer(options: PanelServerOptions = {}): Promise<Pan
 					body: JSON.stringify({ error: "internal_error" }),
 				};
 			}
+			// Only authenticated traffic counts as activity. Otherwise any local process
+			// spraying 401/403s keeps a forgotten panel alive indefinitely, which is the
+			// opposite of what the idle timeout is for.
+			if (out.status < 400) touchIdle();
 			res.writeHead(out.status, out.headers);
 			res.end(out.body);
 		});
 
+		function touchIdle() {
+			if (idleTimeoutMs <= 0) return;
+			if (idleTimer) clearTimeout(idleTimer);
+			idleTimer = setTimeout(() => {
+				const forHuman =
+					idleTimeoutMs >= 60000 ? `${Math.round(idleTimeoutMs / 60000)} min` : `${Math.round(idleTimeoutMs / 1000)}s`;
+				process.stderr.write(`panel: idle for ${forHuman}, shutting down\n`);
+				server.close(() => process.exit(0));
+			}, idleTimeoutMs);
+			// Do not hold the event loop open purely to wait for the idle deadline.
+			idleTimer.unref?.();
+		}
+
 		server.on("error", reject);
 		// 127.0.0.1, never 0.0.0.0: the view must not be reachable off this machine.
 		server.listen(options.port ?? 0, "127.0.0.1", () => {
-			const port = (server.address() as { port: number }).port;
+			const address = server.address() as { port: number; address: string };
+			const port = address.port;
+			// Guard the single most consequential setting: bound to loopback, never 0.0.0.0.
+			if (address.address !== "127.0.0.1") {
+				server.close();
+				reject(new Error(`Refusing to serve on ${address.address} — the panel must bind 127.0.0.1 only`));
+				return;
+			}
+			touchIdle();
 			resolve({
 				url: `http://127.0.0.1:${port}/?t=${token}`,
 				port,
 				token,
 				close: () =>
 					new Promise<void>((done) => {
+						if (idleTimer) clearTimeout(idleTimer);
 						server.close(() => done());
 					}),
 			});

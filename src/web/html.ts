@@ -74,9 +74,17 @@ mark{background:#f3e08a;color:#1b1b19}
 // inserted with textContent, never innerHTML, so transcript content can never become
 // markup — the one exception is search highlighting, which escapes first.
 const SCRIPT = `
-const T=window.__T;let all=[],cur=null,mode='local';
+// Read the token into a closure and drop the global. The literal still exists in this
+// page's source — unavoidable when the page must hold a credential — so this is tidiness,
+// not containment. Containment comes from the token never leaving the page: no cookie, no
+// URL, and every value rendered with textContent.
+const T=window.__T;delete window.__T;let all=[],cur=null,mode='local';
 const $=s=>document.querySelector(s);
-const api=(p)=>fetch(p+(p.includes('?')?'&':'?')+'t='+encodeURIComponent(T)).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
+// The token is held in memory and sent as a request header — never as a cookie (which
+// would be broadcast to every other server on 127.0.0.1) and never in a URL (which leaks
+// into history, Referer and screenshots). Strip it from the address bar immediately.
+try{if(location.search.includes('t=')){history.replaceState(null,'',location.pathname)}}catch(e){}
+const api=(p)=>fetch(p,{headers:{'X-Panel-Token':T}}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
 const when=s=>{if(!s)return'unknown';const d=new Date(s),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())};
 const size=b=>b>=1048576?(b/1048576).toFixed(1)+'MB':Math.max(1,Math.round(b/1024))+'KB';
 function rows(items){
@@ -169,6 +177,36 @@ export function renderShell(opts: { token: string }): string {
 </main>
 <script>window.__T=${jsonForScript(opts.token)};</script>
 <script>${SCRIPT}</script>
+</body>
+</html>`;
+}
+
+/**
+ * Shown when the shell is opened without a valid token.
+ *
+ * Each run mints a fresh token and the page erases the tokenised URL from history, so a
+ * bookmarked or re-visited bare URL after a restart lands here. A bare
+ * `{"error":"unauthorized"}` gave no hint what to do.
+ */
+export function renderUnauthorized(): string {
+	return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>CodeTeleport — session expired</title>
+<style>${STYLE}
+.card{max-width:34rem;margin:12vh auto;padding:0 20px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1 style="font-size:18px;margin-bottom:8px">This panel link is no longer valid</h1>
+  <p class="meta" style="font-size:14px">Each <code>codeteleport web</code> run issues a new one-time link, so a bookmarked or reopened URL stops working once the panel restarts.</p>
+  <p class="meta" style="font-size:14px">Start it again and use the URL it prints:</p>
+  <p><code>codeteleport web</code></p>
+</div>
 </body>
 </html>`;
 }
