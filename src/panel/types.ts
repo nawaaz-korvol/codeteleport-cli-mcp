@@ -28,6 +28,83 @@ export interface PanelSession extends LocalSession {
 	resumeCommand: string;
 }
 
+/** Directory overrides shared by every panel operation (tests, non-default homes). */
+export interface PanelDirs {
+	claudeDir?: string;
+	codexDir?: string;
+	geminiDir?: string;
+	/** Overrides ~/.codeteleport/panel (trash + caches). */
+	panelDir?: string;
+	/** Overrides os.homedir() when resolving/rewriting paths. Tests only. */
+	userDir?: string;
+}
+
+export interface MoveOptions extends PanelDirs {
+	sessionId: string;
+	agentId?: string;
+	/** Absolute path to anchor the session at. */
+	targetDir: string;
+	/** Report the plan without touching anything. */
+	dryRun?: boolean;
+	/** Leave the source in place — this is what `copy` uses. */
+	keepSource?: boolean;
+	/**
+	 * Invoked after the destination is verified and immediately before the source is
+	 * removed. Exists so the live-session guard (§8: re-stat before deleting) can be
+	 * exercised deterministically — a test mutates the transcript here to simulate an
+	 * agent appending mid-move. Not part of the CLI/MCP surface.
+	 */
+	onBeforeSourceDelete?: () => void;
+}
+
+export interface MoveResult {
+	/** Session id at the destination. */
+	sessionId: string;
+	sourceSessionId: string;
+	fromPath: string;
+	toPath: string;
+	movedBytes: number;
+	/** Satellite kinds that travelled, e.g. ["subagents", "file-history"]. */
+	satellitesMoved: string[];
+	resumeCommand: string;
+	dryRun: boolean;
+	/** Set when the source was deliberately kept (copy) or the move was a no-op. */
+	sourceKept: boolean;
+}
+
+export interface DeleteOptions extends PanelDirs {
+	sessionId: string;
+	agentId?: string;
+	dryRun?: boolean;
+	/** Bundle the session into the trash first. Defaults to true. */
+	backup?: boolean;
+}
+
+export interface DeleteResult {
+	sessionId: string;
+	/** Paths actually removed (or that would be, when dryRun). */
+	removedPaths: string[];
+	freedBytes: number;
+	/** Trash bundle written before deletion, unless backup was disabled. */
+	backupPath?: string;
+	dryRun: boolean;
+}
+
+export interface RestoreOptions extends PanelDirs {
+	sessionId: string;
+	/** Explicit trash bundle. Defaults to the newest backup for this session. */
+	backupPath?: string;
+	dryRun?: boolean;
+}
+
+export interface RestoreResult {
+	sessionId: string;
+	restoredTo: string;
+	backupPath: string;
+	resumeCommand: string;
+	dryRun: boolean;
+}
+
 export interface ScanPanelOptions {
 	/** Agent id, or "all" to merge every supported agent. Defaults to "all". */
 	agentId?: string;

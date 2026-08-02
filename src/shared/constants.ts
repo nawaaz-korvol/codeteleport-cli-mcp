@@ -15,6 +15,12 @@ export const API_URL = "https://api.codeteleport.com/v1";
 
 // ── Local session panel ──
 
+/** Panel state (trash, caches). Derived from CONFIG_DIR so test isolation carries over. */
+export const PANEL_DIR = path.join(CONFIG_DIR, "panel");
+
+/** Where `local rm` parks a session's bundle before removing it. */
+export const TRASH_DIR = path.join(PANEL_DIR, "trash");
+
 /**
  * Chunk size for the panel's forward transcript scan. The scan stops as soon as the
  * first timestamp and the cwd are known, so this bounds memory, not total work.
