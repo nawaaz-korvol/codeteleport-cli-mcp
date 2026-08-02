@@ -213,6 +213,9 @@ export async function movePanelSession(options: MoveOptions): Promise<MoveResult
 		const bundle = await bundleSession({
 			sessionId: session.sessionId,
 			cwd: session.projectPath,
+			// Read from where the files actually are, which is not always
+			// encodePath(projectPath) — see BundleOptions.projDir.
+			projDir: srcProjDir,
 			agentId,
 			claudeDir,
 			codexDir: dirs.codexDir,
@@ -301,6 +304,7 @@ export async function deletePanelSession(options: DeleteOptions): Promise<Delete
 			const bundle = await bundleSession({
 				sessionId: session.sessionId,
 				cwd: session.projectPath,
+				projDir,
 				agentId,
 				claudeDir,
 				codexDir: dirs.codexDir,

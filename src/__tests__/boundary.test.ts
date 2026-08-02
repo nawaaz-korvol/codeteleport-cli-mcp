@@ -141,6 +141,26 @@ describe("local layer boundary", () => {
 		expect(violations, `packages/mcp must not depend on workspace siblings:\n${violations.join("\n")}`).toEqual([]);
 	});
 
+	it("keeps the local CLI commands free of auth and networking", () => {
+		// `src/cli` is the cloud layer, so the blanket rule above does not apply to it —
+		// but `local *` is the panel's user-facing surface and must keep the panel's
+		// defining property: usable with no account, no token, no network. Without this,
+		// a stray `readConfig()` for something incidental would chain a free local tool
+		// to the paid cloud CLI, and nothing else would catch it.
+		const file = path.join(SRC, "cli", "commands", "local.ts");
+		expect(fs.existsSync(file), "cli/commands/local.ts is missing").toBe(true);
+		const content = fs.readFileSync(file, "utf-8");
+
+		const violations: string[] = [];
+		for (const spec of importSpecifiers(content)) {
+			if (/(^|\/)client\//.test(spec) || /(^|\/)config$/.test(spec)) violations.push(`imports "${spec}"`);
+		}
+		for (const { pattern, why } of FORBIDDEN_PATTERNS) {
+			if (pattern.test(content)) violations.push(`${why} (${pattern})`);
+		}
+		expect(violations, `local commands must stay account-free:\n${violations.join("\n")}`).toEqual([]);
+	});
+
 	it("exposes the panel module surface", () => {
 		const expected = ["index.ts", "types.ts"];
 		const missing = expected.filter((f) => !fs.existsSync(path.join(SRC, "panel", f)));

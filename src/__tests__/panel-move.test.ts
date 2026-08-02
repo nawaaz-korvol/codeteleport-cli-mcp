@@ -138,6 +138,38 @@ describe("panel move", () => {
 		});
 	});
 
+	describe("cwd / directory mismatch", () => {
+		it("moves a session whose recorded cwd differs from the directory it lives in", async () => {
+			// Real case, found on a live machine (1 of 70 claude sessions): the transcript
+			// sits in the encoded dir for /Users/x/work-hunt while its recorded cwd is
+			// /Users/x/work-hunt/worktrees/ui-refix. Locating the file via encodePath(cwd)
+			// looks in the wrong place and fails with "Session JSONL not found" — and it
+			// fails on precisely the sessions most likely to need moving, since a mismatch
+			// like this usually means the project was relocated.
+			const recordedCwd = path.join(tmp, "repo", "worktrees", "feature");
+			const actualProjDir = path.join(projectsDir, encodePath(srcCwd));
+			fs.mkdirSync(actualProjDir, { recursive: true });
+			fs.writeFileSync(
+				path.join(actualProjDir, `${ID}.jsonl`),
+				`${[
+					line({ type: "user", timestamp: "2026-05-01T10:00:00.000Z", cwd: recordedCwd, message: { content: "x" } }),
+					line({ type: "ai-title", aiTitle: "mismatched", sessionId: ID }),
+				].join("\n")}\n`,
+			);
+
+			const res = await move();
+
+			expect(res.fromPath).toBe(recordedCwd);
+			expect(res.toPath).toBe(dstCwd);
+			const installed = path.join(dstProj(), `${ID}.jsonl`);
+			expect(fs.existsSync(installed)).toBe(true);
+			// Rewriting still keys off the recorded cwd — that is what the transcript
+			// actually contains, so it is the correct source for the path rewrite.
+			expect(fs.readFileSync(installed, "utf-8")).toContain(dstCwd);
+			expect(fs.existsSync(path.join(actualProjDir, `${ID}.jsonl`))).toBe(false);
+		});
+	});
+
 	describe("dry run", () => {
 		it("reports the plan without touching the filesystem", async () => {
 			seedSession(srcCwd);

@@ -33,6 +33,17 @@ export interface BundleOptions {
 	agentId?: string;
 	/** Absolute paths of working/temp files the session created or depends on (e.g. /tmp/*.json). */
 	includePaths?: string[];
+	/**
+	 * Where the session's files actually live, overriding `<claudeDir>/projects/encodePath(cwd)`.
+	 *
+	 * Normally the two are the same, but they can diverge: a transcript's recorded `cwd`
+	 * is whatever the agent wrote inside it, which is not always the directory the file
+	 * was filed under (observed on a real machine for 1 of 70 sessions — filed under
+	 * `-Users-x-work-hunt` while recording a `worktrees/ui-refix` cwd). `cwd` still
+	 * determines `meta.sourceCwd` and therefore the path rewrite; this only says where to
+	 * read from.
+	 */
+	projDir?: string;
 }
 
 export interface UnbundleResult {

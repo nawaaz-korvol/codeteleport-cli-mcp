@@ -26,7 +26,10 @@ export async function bundleSession(options: BundleOptions): Promise<BundleResul
 	const sourceUserDir = options.sourceUserDir ?? os.homedir();
 	const encodedCwd = encodePath(cwd);
 
-	const projDir = path.join(claudeDir, "projects", encodedCwd);
+	// Locating and path-rewriting are separate concerns: `cwd` drives meta.sourceCwd (and
+	// so the rewrite), while `projDir` says where the files actually are. They coincide
+	// unless a transcript was filed under a directory that doesn't match its recorded cwd.
+	const projDir = options.projDir ?? path.join(claudeDir, "projects", encodedCwd);
 	const jsonlPath = path.join(projDir, `${sessionId}.jsonl`);
 
 	if (!fs.existsSync(jsonlPath)) {
