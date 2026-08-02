@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.8.0 (2026-08-02)
+
+- **Local session panel — see and manage every chat on the machine.** `codeteleport local list` lists sessions across **all three agents at once** (Claude Code, Codex, Antigravity), something no agent's own picker does. Each row carries the project path, last-used time, message count, size, a title, and a ready-to-run resume command. Add `--json` for the full session object, `--stranded` for sessions whose project directory no longer exists, plus `--agent`, `--project` and `--limit`. Everything here works with **no account, no login and no network** — that constraint is enforced by a test, not just intended.
+
+- **Move, delete and restore sessions.** `local move <id> --to <path>` re-anchors a session at a different project directory, rewriting the absolute paths embedded in the transcript and carrying its subagent, file-history and session-env state with it — the fix for a conversation stranded by a renamed or relocated repo. `local rm <id>` deletes a session and its own state while never touching project `memory/`, `paste-cache/` or `shell-snapshots/`, which are shared with other sessions; it writes a trash bundle first, so `local restore <id>` brings it back byte-identically. Both are `--dry-run`-able and confirm before acting.
+
+- **`codeteleport web` — browse your sessions in a browser.** A read-only panel on `127.0.0.1`: list, read a full transcript, search inside transcripts, and copy a `cd <project> && <resume>` command. Self-contained (no CDN, works offline), binds loopback only, mints a single-use link per run, authenticates by request header rather than a cookie (cookies ignore port and would be sent to every other local server), refuses non-loopback `Host` and `Origin`, and exits after 60 idle minutes (`--idle-timeout`).
+
+- **Resume commands now include the directory.** `claude --resume <id>` fails from the wrong directory with `No conversation found with session ID`, so every surface now shows and copies `cd <project> && claude --resume <id>`.
+
+- **Faster session listing.** Listing no longer reads every transcript end to end — it reads only what it needs and caches message counts by `(path, size, mtime)`. On a real machine with 88 sessions and 479 MB of transcripts (largest 131 MB): **965 ms → ~110 ms cold, ~40 ms warm**, with identical output.
+
+- **Fixed: bundle checksums are now deterministic.** Archiving recorded file mtimes, so bundling identical content twice produced different checksums whenever the two runs straddled a second boundary. Same content now always yields the same checksum.
+
+- **Fixed: `bundleSession` accepts an explicit `projDir`.** A transcript's recorded `cwd` is not always the directory it is filed under, and locating the files is now separate from rewriting the paths inside them.
+
+- **Windows.** Cross-platform session detection for `teleport push`, and LF line endings throughout so a fresh clone lints cleanly.
+
 ## 0.7.0 (2026-06-18)
 
 - **Cross-OS teleport (Windows ⇄ macOS/Linux)** — sessions now teleport between operating systems, not just between machines running the same OS. On `pull`, absolute paths embedded in a session are translated to the target machine's style: a Windows session (`C:\Users\alice\proj`) restores with POSIX paths on macOS/Linux, and a macOS/Linux session restores with native, properly-escaped Windows paths on Windows. Path matching is separator-aware (it handles `/`, `\`, and JSON-escaped `\\`) and JSON-safe (escape sequences like `\n` are never corrupted). Works for Claude Code, Codex, and Antigravity (whose `file://` workspace URIs stay forward-slash on every OS). Project directories are encoded the way each platform's agent expects — the Windows drive colon and backslashes both map to `-` — so `claude --resume` / `codex resume` find the restored session.
